@@ -3,14 +3,9 @@
     <button class="start-button" @click="toggleStartMenu">Start</button>
 
     <div class="taskbar-windows">
-      <button
-        v-for="windowState in openWindows"
-        :key="windowState.id"
-        class="taskbar-item"
-        :class="{ active: windowState.active }"
-        @click="focusWindow(windowState.id)"
-      >
-        {{ windowState.title }}
+      <button v-for="windowState in openWindows" :key="windowState.id" class="taskbar-item"
+        :class="{ active: windowState.id === windowStore.activeWindowId }" @click="focusWindow(windowState.id)">
+        >
       </button>
     </div>
 

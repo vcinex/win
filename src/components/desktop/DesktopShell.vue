@@ -10,6 +10,7 @@
         @focus="focusWindow"
         @close="closeWindow"
         @minimize="minimizeWindow"
+        @update="updateWindow"
       />
     </div>
 
@@ -22,9 +23,10 @@ import { computed } from 'vue'
 import { useWindowStore } from '../../store/windows'
 import Taskbar from '../Taskbar.vue'
 import Window from '../Window.vue'
+import { WindowState } from '../../types/system.ts'
 
 const windowStore = useWindowStore()
-const visibleWindows = computed(() => windowStore.windows.filter((item) => !item.minimized))
+const visibleWindows = computed(() => windowStore.windows)
 
 function focusWindow(id: string) {
   windowStore.focusWindow(id)
@@ -36,6 +38,10 @@ function closeWindow(id: string) {
 
 function minimizeWindow(id: string) {
   windowStore.minimizeWindow(id)
+}
+
+function updateWindow(id: string, updates: Partial<WindowState>) {
+  windowStore.updateWindow(id, updates)
 }
 </script>
 

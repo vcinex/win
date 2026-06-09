@@ -41,6 +41,13 @@ export const useWindowStore = defineStore('windows', {
         this.activeWindowId = this.windows.filter((item) => !item.minimized).pop()?.id ?? ''
       }
     },
+    // 在 actions 中添加:
+    updateWindow(id: string, updates: Partial<WindowState>) {
+      const win = this.windows.find((item) => item.id === id)
+      if (win) {
+        Object.assign(win, updates)
+      }
+    },
     toggleStartMenu() {
       this.startMenuOpen = !this.startMenuOpen
     }

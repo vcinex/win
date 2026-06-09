@@ -42,14 +42,16 @@ const emit = defineEmits<{
 const isDragging = ref(false)
 const isResizing = ref(false)
 
+// 将 windowStyle 中的 minimize 改为 minimized，并且可以增加 display 控制
 const windowStyle = computed(() => ({
   zIndex: props.windowState.zIndex,
   transform: `translate(${props.windowState.position.x}px, ${props.windowState.position.y}px)`,
   width: `${props.windowState.size.width}px`,
   height: `${props.windowState.size.height}px`,
   borderColor: props.windowState.active ? '#5a7cff' : 'rgba(255,255,255,0.1)',
-  opacity: props.windowState.minimize ? 0 : 1, // 预留最小化逻辑
-  pointerEvents: props.windowState.minimize ? 'none' : 'auto'
+  opacity: props.windowState.minimized ? 0 : 1, // 修改拼写
+  pointerEvents: props.windowState.minimized ? 'none' : 'auto', // 修改拼写
+  display: props.windowState.minimized ? 'none' : 'flex' // 彻底从视觉层隐藏，但保留DOM
 }))
 
 function startDrag(e: MouseEvent) {
