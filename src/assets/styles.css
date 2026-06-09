@@ -1,0 +1,32 @@
+/* 全局：强制全屏并隐藏滚动条 */
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 隐藏滚动条 */
+  background: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 通用盒模型 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 隐藏 webkit 浏览器滚动条（保险） */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Firefox 隐藏滚动条 */
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
