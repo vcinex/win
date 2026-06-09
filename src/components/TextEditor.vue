@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useFileSystem } from '../../../my-rss-worker/useFileSystem'
+import { useFileSystem } from '../composables/useFileSystem'
 
 const { files, readFile, writeFile, deleteFile, getMetadata, updateFileList } = useFileSystem()
 
