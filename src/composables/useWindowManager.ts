@@ -6,27 +6,33 @@ export function useWindowManager() {
 
   function openApp(appId: string) {
     const app = getApp(appId)
-    if (!app) return
-    const id = `${app.id}-${Date.now()}`
+    if (!app) {
+      console.warn(`[WindowManager] App with ID ${appId} not found in registry.`)
+      return
+    }
+
+    const existingWindow = windowStore.windows.find(w => w.appId === appId)
+    if (existingWindow) {
+      windowStore.focusWindow(existingWindow.id)
+      return
+    }
+
+    const uniqueWindowId = `win_${appId}_${Date.now()}`
+
     windowStore.openWindow({
-      id,
+      id: uniqueWindowId,
       appId: app.id,
-      title: app.title,
-      zIndex: 0,
-      position: { x: 120, y: 120 },
-      size: app.defaultSize ?? { width: 800, height: 600 },
+      title: app.name || app.title || 'Unknown App', 
+      position: { x: 100, y: 100 }, 
+      size: { width: 800, height: 600 }, 
       minimized: false,
       maximized: false,
-      active: false,
-      component: app.component
+      zIndex: 0,
+      component: app.component // ✅ 关键修复：将注册的 Vue 组件传给窗口状态
     })
   }
 
-  return {
-    openApp,
-    focusWindow: windowStore.focusWindow,
-    closeWindow: windowStore.closeWindow,
-    minimizeWindow: windowStore.minimizeWindow,
-    toggleStartMenu: windowStore.toggleStartMenu
+  return { 
+    openApp 
   }
 }

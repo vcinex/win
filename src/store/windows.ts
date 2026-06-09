@@ -14,8 +14,6 @@ export const useWindowStore = defineStore('windows', {
   actions: {
     openWindow(windowState: WindowState) {
       windowState.zIndex = this.nextZIndex++
-      windowState.active = true
-      this.windows.forEach((item) => (item.active = item.id === windowState.id ? true : false))
       this.windows.push(windowState)
       this.activeWindowId = windowState.id
       this.startMenuOpen = false
@@ -23,15 +21,17 @@ export const useWindowStore = defineStore('windows', {
     closeWindow(id: string) {
       this.windows = this.windows.filter((item) => item.id !== id)
       if (this.activeWindowId === id) {
-        this.activeWindowId = this.windows.length ? this.windows[this.windows.length - 1].id : ''
+        // 寻找最后一个没有被最小化的窗口
+        const lastVisibleWindow = this.windows.filter((item) => !item.minimized).pop()
+        this.activeWindowId = lastVisibleWindow ? lastVisibleWindow.id : ''
       }
     },
     focusWindow(id: string) {
       const win = this.windows.find((item) => item.id === id)
       if (!win) return
-      this.windows.forEach((item) => (item.active = item.id === id))
       win.zIndex = this.nextZIndex++
       this.activeWindowId = id
+      win.minimized = false // 建议加上这行：如果聚焦了一个最小化的窗口，自动恢复显示
     },
     minimizeWindow(id: string) {
       const win = this.windows.find((item) => item.id === id)

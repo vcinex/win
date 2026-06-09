@@ -25,6 +25,8 @@
 </template>
 
 <script setup lang="ts">
+import { useWindowStore } from '../store/windows'
+const windowStore = useWindowStore()
 import { computed, ref } from 'vue'
 import type { WindowState } from '../types/system'
 
@@ -48,10 +50,11 @@ const windowStyle = computed(() => ({
   transform: `translate(${props.windowState.position.x}px, ${props.windowState.position.y}px)`,
   width: `${props.windowState.size.width}px`,
   height: `${props.windowState.size.height}px`,
-  borderColor: props.windowState.active ? '#5a7cff' : 'rgba(255,255,255,0.1)',
-  opacity: props.windowState.minimized ? 0 : 1, // 修改拼写
-  pointerEvents: props.windowState.minimized ? 'none' : 'auto', // 修改拼写
-  display: props.windowState.minimized ? 'none' : 'flex' // 彻底从视觉层隐藏，但保留DOM
+  // ✅ 修复：直接用 id 和 store 中的 activeWindowId 对比判断是否激活
+  borderColor: props.windowState.id === windowStore.activeWindowId ? '#5a7cff' : 'rgba(255,255,255,0.1)',
+  opacity: props.windowState.minimized ? 0 : 1, 
+  pointerEvents: props.windowState.minimized ? 'none' : 'auto', 
+  display: props.windowState.minimized ? 'none' : 'flex' 
 }))
 
 function startDrag(e: MouseEvent) {

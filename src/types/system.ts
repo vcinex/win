@@ -14,13 +14,13 @@ export interface WindowState {
   id: string
   appId: string
   title: string
-  zIndex: number
-  position: WindowPosition
-  size: WindowSize
+  position: { x: number; y: number }
+  size: { width: number; height: number }
   minimized: boolean
   maximized: boolean
-  active: boolean
-  component: Component
+  zIndex: number
+  active?: boolean
+  component?: any
 }
 
 export interface AppDefinition {
