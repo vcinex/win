@@ -1,6 +1,5 @@
-import type { AppDefinition } from '../types/system'
-import HelloWorld from '../components/HelloWorld.vue'
-import TextEditor from '../components/TextEditor.vue'
+import type { AppDefinition } from '@/types/system'
+import { Welcome, TextEditor } from '@/components'
 
 const registry = new Map<string, AppDefinition>()
 
@@ -21,7 +20,7 @@ registerApp({
   id: 'hello-world',
   title: 'Welcome',
   icon: '🌐',
-  component: HelloWorld,
+  component: Welcome,
   defaultSize: { width: 560, height: 420 }
 })
 

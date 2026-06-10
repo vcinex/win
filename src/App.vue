@@ -3,5 +3,5 @@
 </template>
 
 <script setup lang="ts">
-import DesktopShell from './components/desktop/DesktopShell.vue'
+import { DesktopShell } from '@/components'
 </script>

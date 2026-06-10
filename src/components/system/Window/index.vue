@@ -25,10 +25,10 @@
 </template>
 
 <script setup lang="ts">
-import { useWindowStore } from '../store/windows'
+import { useWindowStore } from '@/store'
 const windowStore = useWindowStore()
 import { computed, ref } from 'vue'
-import type { WindowState } from '../types/system'
+import type { WindowState } from '@/types'
 
 const props = defineProps<{
   windowState: WindowState
@@ -51,10 +51,11 @@ const windowStyle = computed(() => ({
   width: `${props.windowState.size.width}px`,
   height: `${props.windowState.size.height}px`,
   // ✅ 修复：直接用 id 和 store 中的 activeWindowId 对比判断是否激活
-  borderColor: props.windowState.id === windowStore.activeWindowId ? '#5a7cff' : 'rgba(255,255,255,0.1)',
-  opacity: props.windowState.minimized ? 0 : 1, 
-  pointerEvents: props.windowState.minimized ? 'none' : 'auto', 
-  display: props.windowState.minimized ? 'none' : 'flex' 
+  borderColor:
+    props.windowState.id === windowStore.activeWindowId ? '#5a7cff' : 'rgba(255,255,255,0.1)',
+  opacity: props.windowState.minimized ? 0 : 1,
+  pointerEvents: props.windowState.minimized ? 'none' : 'auto',
+  display: props.windowState.minimized ? 'none' : 'flex'
 }))
 
 function startDrag(e: MouseEvent) {

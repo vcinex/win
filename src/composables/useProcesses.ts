@@ -1,5 +1,5 @@
 import { reactive, shallowRef, ref } from 'vue'
-import type { WindowState, AppDefinition } from '../types/system'
+import type { WindowState, AppDefinition } from '@/types'
 
 const processes = reactive<Map<string, WindowState>>(new Map())
 const maxZIndex = ref(100)

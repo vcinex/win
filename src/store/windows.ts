@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { WindowState } from '../types/system'
+import type { WindowState } from '@/types'
 
 export const useWindowStore = defineStore('windows', {
   state: () => ({

@@ -20,10 +20,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useWindowStore } from '../../store/windows'
-import Taskbar from '../Taskbar.vue'
-import Window from '../Window.vue'
-import { WindowState } from '../../types/system.ts'
+import { useWindowStore } from '@/store'
+import { Window, Taskbar } from '@/components'
+import { WindowState } from '@/types'
 
 const windowStore = useWindowStore()
 const visibleWindows = computed(() => windowStore.windows)
@@ -62,7 +61,8 @@ function updateWindow(id: string, updates: Partial<WindowState>) {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-color: #0e1528; /* fallback */
+  background-color: #0e1528;
+  /* fallback */
   background-image:
     radial-gradient(circle at 10% 10%, rgba(84, 94, 255, 0.18), transparent 30%),
     linear-gradient(135deg, #1b2340 0%, #0e1528 100%);
@@ -75,8 +75,10 @@ function updateWindow(id: string, updates: Partial<WindowState>) {
   inset: 0;
   padding: 12px;
   z-index: 10;
-  pointer-events: none; /* 单个窗口接收事件 */
+  pointer-events: none;
+  /* 单个窗口接收事件 */
 }
+
 .window-layer > * {
   pointer-events: auto;
 }

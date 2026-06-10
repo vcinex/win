@@ -1,18 +1,18 @@
 <template>
   <footer class="taskbar">
-    <button 
-      class="start-button" 
+    <button
+      class="start-button"
       @click.stop="windowStore.startMenuOpen = !windowStore.startMenuOpen"
     >
       Start
     </button>
 
     <div class="taskbar-windows">
-      <button 
-        v-for="windowState in openWindows" 
-        :key="windowState.id" 
+      <button
+        v-for="windowState in openWindows"
+        :key="windowState.id"
         class="taskbar-item"
-        :class="{ active: windowState.id === windowStore.activeWindowId && !windowState.minimized }" 
+        :class="{ active: windowState.id === windowStore.activeWindowId && !windowState.minimized }"
         @click="handleTaskbarClick(windowState)"
       >
         {{ windowState.title }}
@@ -24,12 +24,7 @@
         <span>所有应用</span>
       </div>
       <div class="app-grid">
-        <button 
-          v-for="app in apps" 
-          :key="app.id" 
-          class="app-item"
-          @click="handleOpenApp(app.id)"
-        >
+        <button v-for="app in apps" :key="app.id" class="app-item" @click="handleOpenApp(app.id)">
           <span class="app-icon">24EE</span>
           <span class="app-name">{{ app.name || app.title }}</span>
         </button>
@@ -40,15 +35,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useWindowStore } from '../store/windows'
-import { listApps } from '../services/appRegistry'
-import { useWindowManager } from '../composables/useWindowManager'
-import type { WindowState } from '../types/system'
+import { useWindowStore } from '@/store'
+import { listApps } from '@/services'
+import { useWindowManager } from '@/composables'
+import type { WindowState } from '@/types'
 
 const windowStore = useWindowStore()
-const { openApp } = useWindowManager() 
+const { openApp } = useWindowManager()
 
-const apps = listApps() 
+const apps = listApps()
 const openWindows = computed(() => windowStore.windows)
 
 function handleTaskbarClick(win: WindowState) {
@@ -61,7 +56,7 @@ function handleTaskbarClick(win: WindowState) {
 
 function handleOpenApp(appId: string) {
   openApp(appId)
-  windowStore.startMenuOpen = false 
+  windowStore.startMenuOpen = false
 }
 </script>
 
@@ -74,12 +69,13 @@ function handleOpenApp(appId: string) {
   right: 0;
   height: 40px;
   background: rgba(243, 243, 243, 0.85);
-  backdrop-filter: blur(20px); /* 毛玻璃效果 */
+  backdrop-filter: blur(20px);
+  /* 毛玻璃效果 */
   display: flex;
   align-items: center;
   z-index: 9999;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .start-button {
@@ -98,15 +94,19 @@ function handleOpenApp(appId: string) {
 /* 现代 Windows 风格的开始菜单 */
 .start-menu {
   position: absolute;
-  bottom: 48px; /* 悬浮在任务栏上方 */
+  bottom: 48px;
+  /* 悬浮在任务栏上方 */
   left: 8px;
   width: 360px;
   max-height: 480px;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(25px);
-  border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 8px; /* 圆角 */
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  /* 圆角 */
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.15),
+    0 0 1px rgba(0, 0, 0, 0.1);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -114,8 +114,15 @@ function handleOpenApp(appId: string) {
 }
 
 @keyframes menuFadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .start-menu-header {
@@ -128,7 +135,8 @@ function handleOpenApp(appId: string) {
 
 .app-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 四列网格布局，类似Win开始菜单 */
+  grid-template-columns: repeat(4, 1fr);
+  /* 四列网格布局，类似Win开始菜单 */
   gap: 8px;
   overflow-y: auto;
   padding-right: 4px;
@@ -147,7 +155,8 @@ function handleOpenApp(appId: string) {
 }
 
 .app-item:hover {
-  background: rgba(0, 0, 0, 0.06); /* 悬停微灰背景 */
+  background: rgba(0, 0, 0, 0.06);
+  /* 悬停微灰背景 */
 }
 
 .app-icon {
@@ -184,6 +193,7 @@ function handleOpenApp(appId: string) {
 
 .taskbar-item.active {
   background: rgba(0, 0, 0, 0.08);
-  border-bottom: 3px solid #0067c0; /* 模拟 Windows 任务栏激活指示条 */
+  border-bottom: 3px solid #0067c0;
+  /* 模拟 Windows 任务栏激活指示条 */
 }
 </style>

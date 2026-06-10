@@ -1,5 +1,5 @@
-import { useWindowStore } from '../store/windows'
-import { getApp } from '../services/appRegistry'
+import { useWindowStore } from '@/store'
+import { getApp } from '@/services'
 
 export function useWindowManager() {
   const windowStore = useWindowStore()
@@ -11,7 +11,7 @@ export function useWindowManager() {
       return
     }
 
-    const existingWindow = windowStore.windows.find(w => w.appId === appId)
+    const existingWindow = windowStore.windows.find((w) => w.appId === appId)
     if (existingWindow) {
       windowStore.focusWindow(existingWindow.id)
       return
@@ -22,9 +22,9 @@ export function useWindowManager() {
     windowStore.openWindow({
       id: uniqueWindowId,
       appId: app.id,
-      title: app.name || app.title || 'Unknown App', 
-      position: { x: 100, y: 100 }, 
-      size: { width: 800, height: 600 }, 
+      title: app.name || app.title || 'Unknown App',
+      position: { x: 100, y: 100 },
+      size: { width: 800, height: 600 },
       minimized: false,
       maximized: false,
       zIndex: 0,
@@ -32,7 +32,7 @@ export function useWindowManager() {
     })
   }
 
-  return { 
-    openApp 
+  return {
+    openApp
   }
 }
