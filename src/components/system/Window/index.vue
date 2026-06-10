@@ -17,7 +17,11 @@
       class="window-body"
       :style="{ pointerEvents: isDragging || isResizing ? 'none' : 'auto' }"
     >
-      <component :is="windowState.component" :window-id="windowState.id" />
+      <component 
+        :is="windowState.component" 
+        :window-id="windowState.id" 
+        v-bind="windowState.props" 
+      />
     </section>
 
     <div class="resize-handle" @mousedown.prevent.stop="startResize"></div>
@@ -44,13 +48,11 @@ const emit = defineEmits<{
 const isDragging = ref(false)
 const isResizing = ref(false)
 
-// 将 windowStyle 中的 minimize 改为 minimized，并且可以增加 display 控制
 const windowStyle = computed(() => ({
   zIndex: props.windowState.zIndex,
   transform: `translate(${props.windowState.position.x}px, ${props.windowState.position.y}px)`,
   width: `${props.windowState.size.width}px`,
   height: `${props.windowState.size.height}px`,
-  // ✅ 修复：直接用 id 和 store 中的 activeWindowId 对比判断是否激活
   borderColor:
     props.windowState.id === windowStore.activeWindowId ? '#5a7cff' : 'rgba(255,255,255,0.1)',
   opacity: props.windowState.minimized ? 0 : 1,

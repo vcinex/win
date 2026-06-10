@@ -19,13 +19,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useWindowStore } from '@/store/windows'
+import { useWindowManager } from '@/composables/useWindowManager'
 import Window from '../Window/index.vue'
 import Taskbar from '../Taskbar/index.vue'
-import { WindowState } from '@/types'
+import type { WindowState } from '@/types'
 
 const windowStore = useWindowStore()
+const windowManager = useWindowManager() // ✅ 引入窗口管理器
 const visibleWindows = computed(() => windowStore.windows)
 
 function focusWindow(id: string) {
@@ -43,6 +45,25 @@ function minimizeWindow(id: string) {
 function updateWindow(id: string, updates: Partial<WindowState>) {
   windowStore.updateWindow(id, updates)
 }
+
+// ✅ 监听从文件管理器广播出的双击打开文件事件
+const handleGlobalFileOpen = (event: Event) => {
+  const customEvent = event as CustomEvent
+  const { appId, filePath } = customEvent.detail
+  
+  if (appId) {
+    // 携带 props 参数拉起目标窗口
+    windowManager.openApp(appId, { props: { currentFilePath: filePath } })
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('vfs-open-file', handleGlobalFileOpen)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('vfs-open-file', handleGlobalFileOpen)
+})
 </script>
 
 <style scoped>

@@ -1,6 +1,7 @@
 import type { AppDefinition } from '@/types/system'
 import Welcome from '@/components/apps/Welcome/index.vue'
 import TextEditor from '@/components/apps/TextEditor/index.vue'
+import Explorer from '@/components/apps/Explorer/index.vue'
 
 const registry = new Map<string, AppDefinition>()
 
@@ -31,4 +32,12 @@ registerApp({
   icon: '📝',
   component: TextEditor,
   defaultSize: { width: 900, height: 600 }
+})
+
+registerApp({
+  id: 'file-explorer',
+  title: '资源管理器',
+  icon: '📁',
+  component: Explorer,
+  defaultSize: { width: 850, height: 550 } // 给一个较宽的默认窗口大小展示表格
 })

@@ -21,6 +21,7 @@ export interface WindowState {
   zIndex: number
   active?: boolean
   component?: any
+  props?: Record<string, any> // ✅ 新增：用于存放传递给组件的属性
 }
 
 export interface AppDefinition {

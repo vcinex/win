@@ -25,7 +25,7 @@
       </div>
       <div class="app-grid">
         <button v-for="app in apps" :key="app.id" class="app-item" @click="handleOpenApp(app.id)">
-          <span class="app-icon">24EE</span>
+          <span class="app-icon">{{ app.icon }}</span>
           <span class="app-name">{{ app.name || app.title }}</span>
         </button>
       </div>
