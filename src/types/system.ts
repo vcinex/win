@@ -18,6 +18,7 @@ export interface WindowState {
   size: { width: number; height: number }
   minimized: boolean
   maximized: boolean
+  fullscreen?: boolean
   zIndex: number
   active?: boolean
   component?: any
@@ -31,4 +32,5 @@ export interface AppDefinition {
   component: Component
   defaultSize?: WindowSize
   category?: string
+  single: boolean
 }

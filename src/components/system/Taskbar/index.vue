@@ -55,8 +55,8 @@ function handleTaskbarClick(win: WindowState) {
 }
 
 function handleOpenApp(appId: string) {
-  openApp(appId)
   windowStore.startMenuOpen = false
+  openApp(appId)
 }
 </script>
 

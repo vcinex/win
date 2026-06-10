@@ -12,7 +12,8 @@ export function useWindowManager() {
     }
 
     const existingWindow = windowStore.windows.find((w) => w.appId === appId)
-    if (existingWindow) {
+    console.error(JSON.stringify(app))
+    if (app.single && existingWindow) {
       if (options?.props) {
         windowStore.updateWindow(existingWindow.id, { props: options.props })
       }

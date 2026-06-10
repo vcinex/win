@@ -23,7 +23,8 @@ registerApp({
   title: 'Welcome',
   icon: '🌐',
   component: Welcome,
-  defaultSize: { width: 560, height: 420 }
+  defaultSize: { width: 560, height: 420 },
+  single: true,
 })
 
 registerApp({
@@ -31,7 +32,9 @@ registerApp({
   title: '文本编辑器',
   icon: '📝',
   component: TextEditor,
-  defaultSize: { width: 900, height: 600 }
+  defaultSize: { width: 900, height: 600 },
+  single: false,
+
 })
 
 registerApp({
@@ -39,5 +42,6 @@ registerApp({
   title: '资源管理器',
   icon: '📁',
   component: Explorer,
-  defaultSize: { width: 850, height: 550 } // 给一个较宽的默认窗口大小展示表格
+  defaultSize: { width: 850, height: 550 },
+  single: false,
 })
