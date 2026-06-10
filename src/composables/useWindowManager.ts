@@ -1,5 +1,6 @@
 import { useWindowStore } from '@/store'
 import { getApp } from '@/services'
+import { markRaw } from 'vue'
 
 export function useWindowManager() {
   const windowStore = useWindowStore()
@@ -12,7 +13,6 @@ export function useWindowManager() {
     }
 
     const existingWindow = windowStore.windows.find((w) => w.appId === appId)
-    console.error(JSON.stringify(app))
     if (app.single && existingWindow) {
       if (options?.props) {
         windowStore.updateWindow(existingWindow.id, { props: options.props })
@@ -32,7 +32,7 @@ export function useWindowManager() {
       minimized: false,
       maximized: false,
       zIndex: 0,
-      component: app.component, // ✅ 关键修复：将注册的 Vue 组件传给窗口状态
+      component: markRaw(app.component), // ✅ 关键修复：将注册的 Vue 组件传给窗口状态
       props: options?.props // ✅ 将传入的 props 保存到窗口状态中
     })
   }

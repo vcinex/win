@@ -59,16 +59,17 @@
       />
     </section>
 
-    <!-- 边框调整手柄 -->
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle" @mousedown.prevent.stop="startResize"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-top" @mousedown.prevent.stop="(e) => startResizeEdge(e, 'top')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-right" @mousedown.prevent.stop="(e) => startResizeEdge(e, 'right')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-bottom" @mousedown.prevent.stop="(e) => startResizeEdge(e, 'bottom')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-left" @mousedown.prevent.stop="(e) => startResizeEdge(e, 'left')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-top-left" @mousedown.prevent.stop="(e) => startResizeCorner(e, 'top-left')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-top-right" @mousedown.prevent.stop="(e) => startResizeCorner(e, 'top-right')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-bottom-right" @mousedown.prevent.stop="(e) => startResizeCorner(e, 'bottom-right')"></div>
-    <div v-if="!windowState.maximized && !windowState.fullscreen" class="resize-handle-bottom-left" @mousedown.prevent.stop="(e) => startResizeCorner(e, 'bottom-left')"></div>
+    <template v-if="!windowState.maximized && !windowState.fullscreen">
+      <div class="resize-handle" @mousedown.prevent.stop="startResize"></div>
+      <div class="resize-handle-top" @mousedown.prevent.stop="startResizeEdge($event, 'top')"></div>
+      <div class="resize-handle-right" @mousedown.prevent.stop="startResizeEdge($event, 'right')"></div>
+      <div class="resize-handle-bottom" @mousedown.prevent.stop="startResizeEdge($event, 'bottom')"></div>
+      <div class="resize-handle-left" @mousedown.prevent.stop="startResizeEdge($event, 'left')"></div>
+      <div class="resize-handle-top-left" @mousedown.prevent.stop="startResizeCorner($event, 'top-left')"></div>
+      <div class="resize-handle-top-right" @mousedown.prevent.stop="startResizeCorner($event, 'top-right')"></div>
+      <div class="resize-handle-bottom-right" @mousedown.prevent.stop="startResizeCorner($event, 'bottom-right')"></div>
+      <div class="resize-handle-bottom-left" @mousedown.prevent.stop="startResizeCorner($event, 'bottom-left')"></div>
+    </template>
   </div>
 </template>
 
@@ -77,6 +78,11 @@ import { useWindowStore } from '@/store'
 const windowStore = useWindowStore()
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { WindowState } from '@/types'
+
+// 常量定义，避免魔法数字硬编码
+const TITLEBAR_HEIGHT = 36
+const MIN_WIDTH = 200
+const MIN_HEIGHT = 150
 
 const props = defineProps<{
   windowState: WindowState
@@ -94,11 +100,9 @@ const isResizing = ref(false)
 const originalSize = ref({ width: 0, height: 0 })
 const originalPosition = ref({ x: 0, y: 0 })
 
-// 获取屏幕尺寸
-const getScreenSize = () => ({
-  width: window.innerWidth,
-  height: window.innerHeight
-})
+// 引用全局事件监听函数，以便正确移除
+let currentMoveHandler: ((e: MouseEvent) => void) | null = null
+let currentUpHandler: ((e: MouseEvent) => void) | null = null
 
 const windowStyle = computed(() => {
   let style: Record<string, string | number> = {
@@ -149,7 +153,7 @@ const windowStyle = computed(() => {
 
 // 获取屏幕边缘吸附位置
 const getSnappedPosition = (x: number, y: number) => {
-  const screenWidth = getScreenSize().width
+  const screenWidth = window.innerWidth
   const tolerance = 10 // 吸附容差
 
   let snappedX = x
@@ -167,25 +171,44 @@ const getSnappedPosition = (x: number, y: number) => {
   return { x: snappedX, y: snappedY }
 }
 
+function resetGlobalListeners() {
+  if (currentMoveHandler) {
+    window.removeEventListener('mousemove', currentMoveHandler)
+    currentMoveHandler = null
+  }
+  if (currentUpHandler) {
+    window.removeEventListener('mouseup', currentUpHandler)
+    currentUpHandler = null
+  }
+  document.body.classList.remove('disable-select')
+  isDragging.value = false
+  isResizing.value = false
+}
+
 function startDrag(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('button')) return
   if (props.windowState.maximized) return // 最大化时不能拖拽
 
-  e.preventDefault(); // 阻止默认行为
-  e.stopPropagation(); // 阻止事件冒泡
+  e.preventDefault()
+  e.stopPropagation()
 
   onFocus()
   isDragging.value = true
   
-  // 添加防选择类
   document.body.classList.add('disable-select')
 
   const startX = e.clientX - props.windowState.position.x
   const startY = e.clientY - props.windowState.position.y
 
   const onMouseMove = (moveEvent: MouseEvent) => {
-    moveEvent.preventDefault(); // 阻止移动过程中的默认行为
-    moveEvent.stopPropagation(); // 阻止移动事件冒泡
+    // 兼容处理：当鼠标在浏览器外释放后再次进入窗口，如果按键状态改变则强制解除
+    if (moveEvent.buttons === 0) {
+      resetGlobalListeners()
+      return
+    }
+
+    moveEvent.preventDefault()
+    moveEvent.stopPropagation()
     
     let newX = moveEvent.clientX - startX
     let newY = moveEvent.clientY - startY
@@ -198,21 +221,19 @@ function startDrag(e: MouseEvent) {
     emit('update', props.windowState.id, {
       position: {
         x: Math.max(0, Math.min(newX, window.innerWidth - props.windowState.size.width)),
-        y: Math.max(0, Math.min(newY, window.innerHeight - 36)) // 36是标题栏高度
+        y: Math.max(0, Math.min(newY, window.innerHeight - TITLEBAR_HEIGHT))
       }
     })
   }
 
   const onMouseUp = (upEvent: MouseEvent) => {
-    upEvent.preventDefault(); // 阻止抬起事件的默认行为
-    isDragging.value = false
-    // 移除防选择类
-    document.body.classList.remove('disable-select')
-    window.removeEventListener('mousemove', onMouseMove)
-    window.removeEventListener('mouseup', onMouseUp)
+    upEvent.preventDefault()
+    resetGlobalListeners()
   }
 
-  // 使用捕获模式添加事件监听器
+  currentMoveHandler = onMouseMove
+  currentUpHandler = onMouseUp
+
   window.addEventListener('mousemove', onMouseMove, { passive: false })
   window.addEventListener('mouseup', onMouseUp, { passive: false })
 }
@@ -227,6 +248,11 @@ function startResizeEdge(e: MouseEvent, edge: 'top' | 'right' | 'bottom' | 'left
   const startPosition = { ...props.windowState.position }
 
   const onMouseMove = (moveEvent: MouseEvent) => {
+    if (moveEvent.buttons === 0) {
+      resetGlobalListeners()
+      return
+    }
+
     const deltaX = moveEvent.clientX - startPos.x
     const deltaY = moveEvent.clientY - startPos.y
 
@@ -237,18 +263,18 @@ function startResizeEdge(e: MouseEvent, edge: 'top' | 'right' | 'bottom' | 'left
 
     switch (edge) {
       case 'top':
-        newHeight = Math.max(150, startSize.height - deltaY)
-        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - 150)
+        newHeight = Math.max(MIN_HEIGHT, startSize.height - deltaY)
+        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - MIN_HEIGHT)
         break
       case 'right':
-        newWidth = Math.max(200, startSize.width + deltaX)
+        newWidth = Math.max(MIN_WIDTH, startSize.width + deltaX)
         break
       case 'bottom':
-        newHeight = Math.max(150, startSize.height + deltaY)
+        newHeight = Math.max(MIN_HEIGHT, startSize.height + deltaY)
         break
       case 'left':
-        newWidth = Math.max(200, startSize.width - deltaX)
-        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - 200)
+        newWidth = Math.max(MIN_WIDTH, startSize.width - deltaX)
+        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - MIN_WIDTH)
         break
     }
 
@@ -265,10 +291,11 @@ function startResizeEdge(e: MouseEvent, edge: 'top' | 'right' | 'bottom' | 'left
   }
 
   const onMouseUp = () => {
-    isResizing.value = false
-    window.removeEventListener('mousemove', onMouseMove)
-    window.removeEventListener('mouseup', onMouseUp)
+    resetGlobalListeners()
   }
+
+  currentMoveHandler = onMouseMove
+  currentUpHandler = onMouseUp
 
   window.addEventListener('mousemove', onMouseMove)
   window.addEventListener('mouseup', onMouseUp)
@@ -284,6 +311,11 @@ function startResizeCorner(e: MouseEvent, corner: 'top-left' | 'top-right' | 'bo
   const startPosition = { ...props.windowState.position }
 
   const onMouseMove = (moveEvent: MouseEvent) => {
+    if (moveEvent.buttons === 0) {
+      resetGlobalListeners()
+      return
+    }
+
     const deltaX = moveEvent.clientX - startPos.x
     const deltaY = moveEvent.clientY - startPos.y
 
@@ -294,24 +326,24 @@ function startResizeCorner(e: MouseEvent, corner: 'top-left' | 'top-right' | 'bo
 
     switch (corner) {
       case 'top-left':
-        newWidth = Math.max(200, startSize.width - deltaX)
-        newHeight = Math.max(150, startSize.height - deltaY)
-        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - 200)
-        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - 150)
+        newWidth = Math.max(MIN_WIDTH, startSize.width - deltaX)
+        newHeight = Math.max(MIN_HEIGHT, startSize.height - deltaY)
+        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - MIN_WIDTH)
+        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - MIN_HEIGHT)
         break
       case 'top-right':
-        newWidth = Math.max(200, startSize.width + deltaX)
-        newHeight = Math.max(150, startSize.height - deltaY)
-        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - 150)
+        newWidth = Math.max(MIN_WIDTH, startSize.width + deltaX)
+        newHeight = Math.max(MIN_HEIGHT, startSize.height - deltaY)
+        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - MIN_HEIGHT)
         break
       case 'bottom-right':
-        newWidth = Math.max(200, startSize.width + deltaX)
-        newHeight = Math.max(150, startSize.height + deltaY)
+        newWidth = Math.max(MIN_WIDTH, startSize.width + deltaX)
+        newHeight = Math.max(MIN_HEIGHT, startSize.height + deltaY)
         break
       case 'bottom-left':
-        newWidth = Math.max(200, startSize.width - deltaX)
-        newHeight = Math.max(150, startSize.height + deltaY)
-        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - 200)
+        newWidth = Math.max(MIN_WIDTH, startSize.width - deltaX)
+        newHeight = Math.max(MIN_HEIGHT, startSize.height + deltaY)
+        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - MIN_WIDTH)
         break
     }
 
@@ -328,10 +360,11 @@ function startResizeCorner(e: MouseEvent, corner: 'top-left' | 'top-right' | 'bo
   }
 
   const onMouseUp = () => {
-    isResizing.value = false
-    window.removeEventListener('mousemove', onMouseMove)
-    window.removeEventListener('mouseup', onMouseUp)
+    resetGlobalListeners()
   }
+
+  currentMoveHandler = onMouseMove
+  currentUpHandler = onMouseUp
 
   window.addEventListener('mousemove', onMouseMove)
   window.addEventListener('mouseup', onMouseUp)
@@ -352,36 +385,31 @@ function closeWindow() {
 
 function toggleMinimize() {
   if (props.windowState.minimized) {
-    // 还原窗口
     emit('update', props.windowState.id, {
       minimized: false
     })
   } else {
-    // 最小化窗口
     emit('minimize', props.windowState.id)
   }
 }
 
 function toggleMaximize() {
   if (props.windowState.maximized) {
-    // 还原窗口
     emit('update', props.windowState.id, {
       maximized: false,
       size: originalSize.value,
       position: originalPosition.value
     })
   } else {
-    // 保存原始尺寸和位置
     originalSize.value = { ...props.windowState.size }
     originalPosition.value = { ...props.windowState.position }
     
-    // 最大化窗口
     emit('update', props.windowState.id, {
       maximized: true,
       position: { x: 0, y: 0 },
       size: { 
         width: window.innerWidth, 
-        height: window.innerHeight - 36 // 减去任务栏高度
+        height: window.innerHeight - TITLEBAR_HEIGHT
       }
     })
   }
@@ -389,7 +417,6 @@ function toggleMaximize() {
 
 function showSystemMenu(e: MouseEvent) {
   e.preventDefault()
-  // 这里可以实现系统菜单，暂时只获取焦点
   onFocus()
 }
 
@@ -397,28 +424,24 @@ function showSystemMenu(e: MouseEvent) {
 const handleKeyDown = (e: KeyboardEvent) => {
   if (props.windowState.id !== windowStore.activeWindowId) return
   
-  // Alt + 空格 - 系统菜单
   if (e.altKey && e.key === ' ') {
     e.preventDefault()
-    // 显示系统菜单（这里简化处理）
     onFocus()
   }
   
-  // Ctrl + Alt + Home - 缩小所有窗口（Win键模拟）
   if (e.ctrlKey && e.altKey && e.key === 'Home') {
     e.preventDefault()
-    // 模拟缩小所有窗口
   }
 }
 
-// 监听键盘事件
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
 })
 
-// 清理事件监听器
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  // 组件卸载时强制清理全局事件和样式
+  resetGlobalListeners()
 })
 </script>
 
@@ -437,6 +460,10 @@ onUnmounted(() => {
   backdrop-filter: blur(16px);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .os-window.is-active {
@@ -474,7 +501,7 @@ onUnmounted(() => {
   cursor: default;
   font-size: 13px;
   user-select: none;
-  -webkit-app-region: drag;
+  /* -webkit-app-region: drag; */
 }
 
 .window-controls {
@@ -500,14 +527,6 @@ onUnmounted(() => {
 }
 
 .control-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.minimize-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.maximize-btn:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -615,18 +634,10 @@ onUnmounted(() => {
 }
 
 .disable-select {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  pointer-events: auto; /* 确保窗口内部元素仍可交互 */
-}
-
-.os-window {
-  /* 现有样式 */
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  pointer-events: auto; 
 }
 </style>
