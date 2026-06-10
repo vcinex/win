@@ -1,5 +1,6 @@
 import type { AppDefinition } from '@/types/system'
-import { Welcome, TextEditor } from '@/components'
+import Welcome from '@/components/apps/Welcome/index.vue'
+import TextEditor from '@/components/apps/TextEditor/index.vue'
 
 const registry = new Map<string, AppDefinition>()
 

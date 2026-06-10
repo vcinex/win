@@ -20,8 +20,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useWindowStore } from '@/store'
-import { Window, Taskbar } from '@/components'
+import { useWindowStore } from '@/store/windows'
+import Window from '../Window/index.vue'
+import Taskbar from '../Taskbar/index.vue'
 import { WindowState } from '@/types'
 
 const windowStore = useWindowStore()
@@ -84,7 +85,7 @@ function updateWindow(id: string, updates: Partial<WindowState>) {
 }
 
 /* 确保任务栏始终在最上层 */
-::v-deep(.taskbar) {
+:deep(.taskbar) {
   z-index: 30;
   position: absolute;
   left: 0;
