@@ -41,26 +41,30 @@
       @close-new-menu="newMenuVisible = false"
     />
 
-    <MainContent
-      ref="mainContentRef"
-      :current-path="currentPath"
-      :clipboard="clipboard"
-      :displayed-contents="displayedContents"
-      :selected-items="selectedItems"
-      :view-mode="viewMode"
-      :sort-field="sortField"
-      :sort-desc="sortDesc"
-      :search-query="searchQuery"
-      @select-item="selectItem"
-      @clear-selection="clearSelection"
-      @handle-item-open="handleItemOpen"
-      @open-item-context-menu="openItemContextMenu"
-      @open-blank-context-menu="openBlankContextMenu"
-      @change-sort="changeSort"
-      @navigate-to="navigateTo"
-      @handle-rename-selected="handleRenameSelected"
-      @handle-move-items="handleMoveItems"
-    />
+    <div class="main-body">
+      <Sidebar :current-path="currentPath" @navigate-to="navigateTo" />
+
+      <MainContent
+        ref="mainContentRef"
+        :current-path="currentPath"
+        :clipboard="clipboard"
+        :displayed-contents="displayedContents"
+        :selected-items="selectedItems"
+        :view-mode="viewMode"
+        :sort-field="sortField"
+        :sort-desc="sortDesc"
+        :search-query="searchQuery"
+        @select-item="selectItem"
+        @clear-selection="clearSelection"
+        @handle-item-open="handleItemOpen"
+        @open-item-context-menu="openItemContextMenu"
+        @open-blank-context-menu="openBlankContextMenu"
+        @change-sort="changeSort"
+        @navigate-to="navigateTo"
+        @handle-rename-selected="handleRenameSelected"
+        @handle-move-items="handleMoveItems"
+      />
+    </div>
 
     <StatusBar
       :displayed-contents="displayedContents"
@@ -94,6 +98,7 @@ import CommandBar from './CommandBar.vue'
 import MainContent from './MainContent.vue'
 import StatusBar from './StatusBar.vue'
 import ContextMenu from './ContextMenu.vue'
+import Sidebar from './Sidebar.vue'
 import { useFileSystem } from '@/composables/useFileSystem'
 import type { FileMetadata } from '@/services/fs'
 import { createExplorerStore } from '../store/index'
@@ -510,5 +515,10 @@ onUnmounted(() => {
   outline: none; /* 去除获取焦点时的边框 */
 }
 
+.main-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden; /* 防止溢出 */
+}
 /* 如果你的系统有暗黑模式 CSS 变量，可以在此处增加 */
 </style>
