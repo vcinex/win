@@ -92,14 +92,16 @@ import StatusBar from './StatusBar.vue'
 import ContextMenu from './ContextMenu.vue'
 import { useFileSystem } from '@/composables/useFileSystem'
 import type { FileMetadata } from '@/services/fs'
+import { useExplorerStore } from '../store/index'
+const explorerStore = useExplorerStore()
 
 const { readDirectory, writeFile, readFile, createDirectory, deleteFile, renameFile, getMetadata } =
   useFileSystem()
 
 // 导航状态
-const history = ref<string[]>(['C:/Users/Admin'])
-const historyIndex = ref(0)
-const currentPath = computed(() => history.value[historyIndex.value] ?? '')
+// const history = ref<string[]>(['C:/Users/Admin'])
+// const historyIndex = ref(0)
+const currentPath = computed(() => explorerStore.history[explorerStore.historyIndex] ?? '')
 const pathSegments = computed(() =>
   currentPath.value ? currentPath.value.split('/').filter((s) => s) : []
 )
