@@ -1,37 +1,38 @@
-import type { Component } from 'vue'
+import { DefineComponent } from 'vue'
 
-export interface WindowPosition {
+// 应用注册表配置
+export interface AppConfig {
+  id: string
+  name: string
+  icon: string
+  component: DefineComponent<any, any, any> | any
+  defaultWidth: number
+  defaultHeight: number
+  resizable?: boolean
+}
+
+// 运行中的窗口进程状态
+export interface WindowProcess {
+  pid: string // 唯一进程ID
+  appId: string // 关联的App ID
+  title: string
   x: number
   y: number
-}
-
-export interface WindowSize {
   width: number
   height: number
-}
-
-export interface WindowState {
-  id: string
-  appId: string
-  title: string
-  position: { x: number; y: number }
-  size?: { width: number; height: number }
-  minimized: boolean
-  maximized: boolean
-  fullscreen?: boolean
   zIndex: number
-  active?: boolean
-  component?: any
-  props?: Record<string, any> // ✅ 新增：用于存放传递给组件的属性
+  isMinimized: boolean
+  isMaximized: boolean
+  isActive: boolean
+  props?: Record<string, any> // 传递给具体应用的参数 (如要打开的文件路径)
 }
 
-export interface AppDefinition {
-  id: string
-  name?: string
-  title: string
+// 右键菜单项
+export interface ContextMenuItem {
+  label: string
   icon?: string
-  component: Component
-  defaultSize?: WindowSize
-  category?: string
-  single: boolean
+  action?: () => void
+  divided?: boolean
+  disabled?: boolean
+  children?: ContextMenuItem[]
 }

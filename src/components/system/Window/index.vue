@@ -1,675 +1,189 @@
 <template>
   <div
-    class="os-window"
-    :class="{
-      'is-interacting': isDragging || isResizing,
-      'is-maximized': windowState.maximized,
-      'is-minimized': windowState.minimized,
-      'is-active': windowState.id === windowStore.activeWindowId,
-      'is-fullscreen': windowState.fullscreen
-    }"
+    v-show="!process.isMinimized"
+    class="window-container"
+    :class="{ active: process.isActive, maximized: process.isMaximized }"
     :style="windowStyle"
-    @mousedown="onFocus"
+    @mousedown="focus"
   >
-    <header
-      class="window-titlebar"
-      @mousedown="startDrag"
-      @dblclick="toggleMaximize"
-      @contextmenu="showSystemMenu"
-    >
-      <span>{{ windowState.title }}</span>
-      <div class="window-controls">
-        <button
-          type="button"
-          class="control-btn minimize-btn"
-          :title="windowState.minimized ? '还原' : '最小化'"
-          @click.stop="toggleMinimize"
-        >
-          _
-        </button>
-        <button
-          type="button"
-          class="control-btn maximize-btn"
-          :title="windowState.maximized ? '向下还原' : '最大化'"
-          @click.stop="toggleMaximize"
-        >
-          <svg v-if="!windowState.maximized" width="10" height="10" viewBox="0 0 10 10">
-            <rect
-              x="1"
-              y="1"
-              width="8"
-              height="8"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1"
-            />
-          </svg>
-          <svg v-else width="10" height="10" viewBox="0 0 10 10">
-            <path d="M2 3H7V8H2V3Z" fill="none" stroke="currentColor" stroke-width="1" />
-            <path d="M3 2H8V7H3V2Z" fill="none" stroke="currentColor" stroke-width="1" />
-          </svg>
-        </button>
-        <button type="button" class="control-btn close-btn" title="关闭" @click.stop="closeWindow">
-          ×
-        </button>
+    <div class="title-bar" @mousedown.self="startDrag" @dblclick="toggleMaximize">
+      <div class="title-info">
+        <img v-if="appConfig" :src="appConfig.icon" class="title-icon" />
+        <span class="title-text">{{ process.title }}</span>
       </div>
-    </header>
+      <div class="window-controls">
+        <button class="ctrl-btn minimize" @click.stop="sys.toggleMinimize(pid)">一</button>
+        <button class="ctrl-btn maximize" @click.stop="sys.toggleMaximize(pid)">口</button>
+        <button class="ctrl-btn close" @click.stop="sys.closeProcess(pid)">X</button>
+      </div>
+    </div>
 
-    <section
-      class="window-body"
-      :style="{ pointerEvents: isDragging || isResizing ? 'none' : 'auto' }"
-    >
-      <component
-        :is="windowState.component"
-        :window-id="windowState.id"
-        v-bind="windowState.props"
-      />
-    </section>
+    <div class="window-content">
+      <component :is="appConfig.component" v-if="appConfig" :pid="pid" v-bind="process.props" />
+    </div>
 
-    <template v-if="!windowState.maximized && !windowState.fullscreen">
-      <div class="resize-handle" @mousedown.prevent.stop="startResize"></div>
-      <div class="resize-handle-top" @mousedown.prevent.stop="startResizeEdge($event, 'top')"></div>
-      <div
-        class="resize-handle-right"
-        @mousedown.prevent.stop="startResizeEdge($event, 'right')"
-      ></div>
-      <div
-        class="resize-handle-bottom"
-        @mousedown.prevent.stop="startResizeEdge($event, 'bottom')"
-      ></div>
-      <div
-        class="resize-handle-left"
-        @mousedown.prevent.stop="startResizeEdge($event, 'left')"
-      ></div>
-      <div
-        class="resize-handle-top-left"
-        @mousedown.prevent.stop="startResizeCorner($event, 'top-left')"
-      ></div>
-      <div
-        class="resize-handle-top-right"
-        @mousedown.prevent.stop="startResizeCorner($event, 'top-right')"
-      ></div>
-      <div
-        class="resize-handle-bottom-right"
-        @mousedown.prevent.stop="startResizeCorner($event, 'bottom-right')"
-      ></div>
-      <div
-        class="resize-handle-bottom-left"
-        @mousedown.prevent.stop="startResizeCorner($event, 'bottom-left')"
-      ></div>
-    </template>
+    <div
+      v-if="!process.isMaximized"
+      class="resize-handle"
+      @mousedown.stop.prevent="startResize"
+    ></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useWindowStore } from '@/store'
-const windowStore = useWindowStore()
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import type { WindowState } from '@/types'
+import { computed, ref } from 'vue'
+import { useWindowStore } from '../../../store/windows'
+import { useSystemManager } from '../../../composables/useSystemManager'
+import { appRegistry } from '../../../services/appRegistry'
 
-// 常量定义，避免魔法数字硬编码
-const TITLEBAR_HEIGHT = 36
-const MIN_WIDTH = 200
-const MIN_HEIGHT = 150
+const props = defineProps<{ pid: string }>()
+const store = useWindowStore()
+const sys = useSystemManager()
 
-const props = defineProps<{
-  windowState: WindowState
-}>()
-
-const emit = defineEmits<{
-  (event: 'focus', id: string): void
-  (event: 'close', id: string): void
-  (event: 'minimize', id: string): void
-  (event: 'update', id: string, updates: Partial<WindowState>): void
-}>()
-
-const isDragging = ref(false)
-const isResizing = ref(false)
-const originalSize = ref({ width: 0, height: 0 })
-const originalPosition = ref({ x: 0, y: 0 })
-
-// 引用全局事件监听函数，以便正确移除
-let currentMoveHandler: ((e: MouseEvent) => void) | null = null
-let currentUpHandler: ((e: MouseEvent) => void) | null = null
+const process = computed(() => store.processes.get(props.pid)!)
+const appConfig = computed(() => appRegistry[process.value.appId])
 
 const windowStyle = computed(() => {
-  let style: Record<string, string | number> = {
-    zIndex: props.windowState.zIndex,
-    opacity: props.windowState.minimized ? 0 : 1,
-    pointerEvents: props.windowState.minimized ? 'none' : 'auto',
-    display: props.windowState.minimized ? 'none' : 'flex'
-  }
-
-  if (props.windowState.maximized) {
-    style = {
-      ...style,
-      top: '0px',
-      left: '0px',
+  if (process.value.isMaximized) {
+    return {
+      top: 0,
+      left: 0,
       width: '100%',
-      height: '100%',
-      borderRadius: '0px',
-      transform: 'none'
-    }
-  } else if (props.windowState.fullscreen) {
-    style = {
-      ...style,
-      top: '0px',
-      left: '0px',
-      width: '100vw',
-      height: '100vh',
-      borderRadius: '0px',
-      transform: 'none',
-      border: 'none'
-    }
-  } else {
-    style = {
-      ...style,
-      transform: `translate(${props.windowState.position.x}px, ${props.windowState.position.y}px)`,
-      width: `${props.windowState.size.width}px`,
-      height: `${props.windowState.size.height}px`,
-      borderRadius: '14px'
+      height: 'calc(100vh - 48px)',
+      zIndex: process.value.zIndex
     }
   }
-
-  // 边框颜色根据激活状态变化
-  style.borderColor =
-    props.windowState.id === windowStore.activeWindowId
-      ? 'rgba(90, 124, 255, 0.8)'
-      : 'rgba(255, 255, 255, 0.08)'
-
-  return style
+  return {
+    top: `${process.value.y}px`,
+    left: `${process.value.x}px`,
+    width: `${process.value.width}px`,
+    height: `${process.value.height}px`,
+    zIndex: process.value.zIndex
+  }
 })
 
-// 获取屏幕边缘吸附位置
-const getSnappedPosition = (x: number, y: number) => {
-  const screenWidth = window.innerWidth
-  const tolerance = 10 // 吸附容差
+const focus = () => sys.focusWindow(props.pid)
+const toggleMaximize = () => sys.toggleMaximize(props.pid)
 
-  let snappedX = x
-  let snappedY = y
-
-  // 左边缘吸附
-  if (Math.abs(x) < tolerance) snappedX = 0
-  // 右边缘吸附
-  if (Math.abs(screenWidth - (x + props.windowState.size.width)) < tolerance) {
-    snappedX = screenWidth - props.windowState.size.width
-  }
-  // 顶部吸附
-  if (Math.abs(y) < tolerance) snappedY = 0
-
-  return { x: snappedX, y: snappedY }
-}
-
-function resetGlobalListeners() {
-  if (currentMoveHandler) {
-    window.removeEventListener('mousemove', currentMoveHandler)
-    currentMoveHandler = null
-  }
-  if (currentUpHandler) {
-    window.removeEventListener('mouseup', currentUpHandler)
-    currentUpHandler = null
-  }
-  document.body.classList.remove('disable-select')
-  isDragging.value = false
-  isResizing.value = false
-}
-
-function startDrag(e: MouseEvent) {
-  if ((e.target as HTMLElement).closest('button')) return
-  if (props.windowState.maximized) return // 最大化时不能拖拽
-
-  e.preventDefault()
-  e.stopPropagation()
-
-  onFocus()
-  isDragging.value = true
-
-  document.body.classList.add('disable-select')
-
-  const startX = e.clientX - props.windowState.position.x
-  const startY = e.clientY - props.windowState.position.y
+// 拖拽逻辑
+const startDrag = (e: MouseEvent) => {
+  if (process.value?.isMaximized) return
+  focus()
+  const startX = e.clientX - process.value.x
+  const startY = e.clientY - process.value.y
 
   const onMouseMove = (moveEvent: MouseEvent) => {
-    // 兼容处理：当鼠标在浏览器外释放后再次进入窗口，如果按键状态改变则强制解除
-    if (moveEvent.buttons === 0) {
-      resetGlobalListeners()
-      return
-    }
-
-    moveEvent.preventDefault()
-    moveEvent.stopPropagation()
-
-    let newX = moveEvent.clientX - startX
-    let newY = moveEvent.clientY - startY
-
-    // 边缘吸附
-    const snappedPos = getSnappedPosition(newX, newY)
-    newX = snappedPos.x
-    newY = snappedPos.y
-
-    emit('update', props.windowState.id, {
-      position: {
-        x: Math.max(0, Math.min(newX, window.innerWidth - props.windowState.size.width)),
-        y: Math.max(0, Math.min(newY, window.innerHeight - TITLEBAR_HEIGHT))
-      }
-    })
+    sys.updateWindowBounds(props.pid, moveEvent.clientX - startX, moveEvent.clientY - startY)
   }
-
-  const onMouseUp = (upEvent: MouseEvent) => {
-    upEvent.preventDefault()
-    resetGlobalListeners()
-  }
-
-  currentMoveHandler = onMouseMove
-  currentUpHandler = onMouseUp
-
-  window.addEventListener('mousemove', onMouseMove, { passive: false })
-  window.addEventListener('mouseup', onMouseUp, { passive: false })
-}
-
-// 边缘调整大小
-function startResizeEdge(e: MouseEvent, edge: 'top' | 'right' | 'bottom' | 'left') {
-  onFocus()
-  isResizing.value = true
-
-  const startPos = { x: e.clientX, y: e.clientY }
-  const startSize = { ...props.windowState.size }
-  const startPosition = { ...props.windowState.position }
-
-  const onMouseMove = (moveEvent: MouseEvent) => {
-    if (moveEvent.buttons === 0) {
-      resetGlobalListeners()
-      return
-    }
-
-    const deltaX = moveEvent.clientX - startPos.x
-    const deltaY = moveEvent.clientY - startPos.y
-
-    let newWidth = startSize.width
-    let newHeight = startSize.height
-    let newX = startPosition.x
-    let newY = startPosition.y
-
-    switch (edge) {
-      case 'top':
-        newHeight = Math.max(MIN_HEIGHT, startSize.height - deltaY)
-        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - MIN_HEIGHT)
-        break
-      case 'right':
-        newWidth = Math.max(MIN_WIDTH, startSize.width + deltaX)
-        break
-      case 'bottom':
-        newHeight = Math.max(MIN_HEIGHT, startSize.height + deltaY)
-        break
-      case 'left':
-        newWidth = Math.max(MIN_WIDTH, startSize.width - deltaX)
-        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - MIN_WIDTH)
-        break
-    }
-
-    emit('update', props.windowState.id, {
-      size: {
-        width: newWidth,
-        height: newHeight
-      },
-      position: {
-        x: newX,
-        y: newY
-      }
-    })
-  }
-
   const onMouseUp = () => {
-    resetGlobalListeners()
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
   }
-
-  currentMoveHandler = onMouseMove
-  currentUpHandler = onMouseUp
-
-  window.addEventListener('mousemove', onMouseMove)
-  window.addEventListener('mouseup', onMouseUp)
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 }
 
-// 角落调整大小
-function startResizeCorner(
-  e: MouseEvent,
-  corner: 'top-left' | 'top-right' | 'bottom-right' | 'bottom-left'
-) {
-  onFocus()
-  isResizing.value = true
-
-  const startPos = { x: e.clientX, y: e.clientY }
-  const startSize = { ...props.windowState.size }
-  const startPosition = { ...props.windowState.position }
+// 缩放逻辑
+const startResize = (e: MouseEvent) => {
+  focus()
+  const startW = process.value.width
+  const startH = process.value.height
+  const startX = e.clientX
+  const startY = e.clientY
 
   const onMouseMove = (moveEvent: MouseEvent) => {
-    if (moveEvent.buttons === 0) {
-      resetGlobalListeners()
-      return
-    }
-
-    const deltaX = moveEvent.clientX - startPos.x
-    const deltaY = moveEvent.clientY - startPos.y
-
-    let newWidth = startSize.width
-    let newHeight = startSize.height
-    let newX = startPosition.x
-    let newY = startPosition.y
-
-    switch (corner) {
-      case 'top-left':
-        newWidth = Math.max(MIN_WIDTH, startSize.width - deltaX)
-        newHeight = Math.max(MIN_HEIGHT, startSize.height - deltaY)
-        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - MIN_WIDTH)
-        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - MIN_HEIGHT)
-        break
-      case 'top-right':
-        newWidth = Math.max(MIN_WIDTH, startSize.width + deltaX)
-        newHeight = Math.max(MIN_HEIGHT, startSize.height - deltaY)
-        newY = Math.min(startPosition.y + deltaY, startPosition.y + startSize.height - MIN_HEIGHT)
-        break
-      case 'bottom-right':
-        newWidth = Math.max(MIN_WIDTH, startSize.width + deltaX)
-        newHeight = Math.max(MIN_HEIGHT, startSize.height + deltaY)
-        break
-      case 'bottom-left':
-        newWidth = Math.max(MIN_WIDTH, startSize.width - deltaX)
-        newHeight = Math.max(MIN_HEIGHT, startSize.height + deltaY)
-        newX = Math.min(startPosition.x + deltaX, startPosition.x + startSize.width - MIN_WIDTH)
-        break
-    }
-
-    emit('update', props.windowState.id, {
-      size: {
-        width: newWidth,
-        height: newHeight
-      },
-      position: {
-        x: newX,
-        y: newY
-      }
-    })
+    sys.updateWindowBounds(
+      props.pid,
+      process.value.x,
+      process.value.y,
+      startW + (moveEvent.clientX - startX),
+      startH + (moveEvent.clientY - startY)
+    )
   }
-
   const onMouseUp = () => {
-    resetGlobalListeners()
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
   }
-
-  currentMoveHandler = onMouseMove
-  currentUpHandler = onMouseUp
-
-  window.addEventListener('mousemove', onMouseMove)
-  window.addEventListener('mouseup', onMouseUp)
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 }
-
-// 完整的调整大小功能
-function startResize(e: MouseEvent) {
-  startResizeCorner(e, 'bottom-right')
-}
-
-function onFocus() {
-  emit('focus', props.windowState.id)
-}
-
-function closeWindow() {
-  emit('close', props.windowState.id)
-}
-
-function toggleMinimize() {
-  if (props.windowState.minimized) {
-    emit('update', props.windowState.id, {
-      minimized: false
-    })
-  } else {
-    emit('minimize', props.windowState.id)
-  }
-}
-
-function toggleMaximize() {
-  if (props.windowState.maximized) {
-    emit('update', props.windowState.id, {
-      maximized: false,
-      size: originalSize.value,
-      position: originalPosition.value
-    })
-  } else {
-    originalSize.value = { ...props.windowState.size }
-    originalPosition.value = { ...props.windowState.position }
-
-    emit('update', props.windowState.id, {
-      maximized: true,
-      position: { x: 0, y: 0 },
-      size: {
-        width: window.innerWidth,
-        height: window.innerHeight - TITLEBAR_HEIGHT
-      }
-    })
-  }
-}
-
-function showSystemMenu(e: MouseEvent) {
-  e.preventDefault()
-  onFocus()
-}
-
-// 键盘快捷键处理
-const handleKeyDown = (e: KeyboardEvent) => {
-  if (props.windowState.id !== windowStore.activeWindowId) return
-
-  if (e.altKey && e.key === ' ') {
-    e.preventDefault()
-    onFocus()
-  }
-
-  if (e.ctrlKey && e.altKey && e.key === 'Home') {
-    e.preventDefault()
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', handleKeyDown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown)
-  // 组件卸载时强制清理全局事件和样式
-  resetGlobalListeners()
-})
 </script>
 
 <style scoped>
-.os-window {
+.window-container {
   position: absolute;
-  top: 0;
-  left: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(18, 24, 42, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(16px);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s;
+}
+.window-container.active {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+.window-container.maximized {
+  border-radius: 0;
+  transition: all 0.2s ease-out;
+}
+.title-bar {
+  height: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f3f3f3;
   user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
 }
-
-.os-window.is-active {
-  border-color: rgba(90, 124, 255, 0.8);
-  box-shadow: 0 36px 72px rgba(0, 0, 0, 0.45);
+.window-container.active .title-bar {
+  background: #ffffff;
 }
-
-.os-window:hover:not(.is-maximized) {
-  box-shadow: 0 36px 72px rgba(0, 0, 0, 0.45);
-}
-
-.os-window.is-interacting {
-  transition: none;
-}
-
-.os-window.is-maximized {
-  border-radius: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.os-window.is-fullscreen {
-  border: none;
-  border-radius: 0;
-}
-
-.window-titlebar {
-  height: 36px;
+.title-info {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 12px;
-  background: rgba(10, 14, 26, 0.94);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: #eef2ff;
-  cursor: default;
-  font-size: 13px;
-  user-select: none;
-  /* -webkit-app-region: drag; */
+  padding-left: 10px;
+  pointer-events: none;
 }
-
+.title-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+.title-text {
+  font-size: 12px;
+  color: #333;
+}
 .window-controls {
   display: flex;
-  gap: 4px;
+  height: 100%;
 }
-
-.control-btn {
-  width: 36px;
-  height: 28px;
-  margin: 0;
+.ctrl-btn {
+  width: 46px;
   border: none;
-  border-radius: 6px;
   background: transparent;
-  color: #eef2ff;
+  transition: 0.1s;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  transition: all 0.15s ease;
-  -webkit-app-region: no-drag;
 }
-
-.control-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+.ctrl-btn:hover {
+  background: #e5e5e5;
 }
-
-.close-btn:hover {
+.ctrl-btn.close:hover {
   background: #e81123;
   color: white;
 }
-
-.window-body {
+.window-content {
   flex: 1;
-  min-height: 0;
   overflow: hidden;
-  background: rgba(8, 12, 22, 0.95);
+  position: relative;
 }
-
-/* 调整大小手柄 */
 .resize-handle {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 16px;
-  height: 16px;
+  width: 10px;
+  height: 10px;
   cursor: nwse-resize;
-  z-index: 10;
-}
-
-.resize-handle-top {
-  position: absolute;
-  top: 0;
-  left: 8px;
-  right: 8px;
-  height: 8px;
-  cursor: ns-resize;
-  z-index: 10;
-}
-
-.resize-handle-right {
-  position: absolute;
-  top: 8px;
-  right: 0;
-  bottom: 8px;
-  width: 8px;
-  cursor: ew-resize;
-  z-index: 10;
-}
-
-.resize-handle-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 8px;
-  right: 8px;
-  height: 8px;
-  cursor: ns-resize;
-  z-index: 10;
-}
-
-.resize-handle-left {
-  position: absolute;
-  top: 8px;
-  left: 0;
-  bottom: 8px;
-  width: 8px;
-  cursor: ew-resize;
-  z-index: 10;
-}
-
-.resize-handle-top-left {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nwse-resize;
-  z-index: 10;
-}
-
-.resize-handle-top-right {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nesw-resize;
-  z-index: 10;
-}
-
-.resize-handle-bottom-right {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nwse-resize;
-  z-index: 10;
-}
-
-.resize-handle-bottom-left {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 16px;
-  height: 16px;
-  cursor: nesw-resize;
-  z-index: 10;
-}
-
-.disable-select {
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  pointer-events: auto;
 }
 </style>

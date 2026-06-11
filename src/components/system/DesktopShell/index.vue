@@ -1,116 +1,101 @@
 <template>
-  <div class="desktop-shell">
-    <div class="desktop-background"></div>
-
-    <div class="window-layer">
-      <Window
-        v-for="windowState in visibleWindows"
-        :key="windowState.id"
-        :window-state="windowState"
-        @focus="focusWindow"
-        @close="closeWindow"
-        @minimize="minimizeWindow"
-        @update="updateWindow"
-      />
+  <div class="desktop-shell" @contextmenu="handleDesktopContextMenu">
+    <div class="desktop-grid">
+      <div
+        v-for="icon in desktopIcons"
+        :key="icon.name"
+        class="desktop-icon"
+        @dblclick="open(icon)"
+      >
+        <img :src="getAppIcon(icon.appId)" />
+        <span>{{ icon.name }}</span>
+      </div>
     </div>
 
-    <Taskbar />
+    <Window v-for="[pid, process] in store.processes" :key="pid" :pid="pid" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
-import { useWindowStore } from '@/store/windows'
-import { useWindowManager } from '@/composables/useWindowManager'
+import { ref, onMounted } from 'vue'
+import { fs } from '../../../services/fs'
+import { appRegistry } from '../../../services/appRegistry'
+import { useSystemManager } from '../../../composables/useSystemManager'
+import { useContextMenu } from '../../../composables/useContextMenu'
 import Window from '../Window/index.vue'
-import Taskbar from '../Taskbar/index.vue'
-import type { WindowState } from '@/types'
+import { useWindowStore } from '../../../store/windows'
 
-const windowStore = useWindowStore()
-const windowManager = useWindowManager() // ✅ 引入窗口管理器
-const visibleWindows = computed(() => windowStore.windows)
+const sys = useSystemManager()
+const store = useWindowStore()
+const { showMenu } = useContextMenu()
 
-function focusWindow(id: string) {
-  windowStore.focusWindow(id)
-}
+const desktopIcons = ref<any[]>([])
 
-function closeWindow(id: string) {
-  windowStore.closeWindow(id)
-}
-
-function minimizeWindow(id: string) {
-  windowStore.minimizeWindow(id)
-}
-
-function updateWindow(id: string, updates: Partial<WindowState>) {
-  windowStore.updateWindow(id, updates)
-}
-
-// ✅ 监听从文件管理器广播出的双击打开文件事件
-const handleGlobalFileOpen = (event: Event) => {
-  const customEvent = event as CustomEvent
-  const { appId, filePath } = customEvent.detail
-
-  if (appId) {
-    // 携带 props 参数拉起目标窗口
-    windowManager.openApp(appId, { props: { currentFilePath: filePath } })
+onMounted(async () => {
+  // 异步读取虚拟文件系统中的桌面文件夹
+  try {
+    desktopIcons.value = await fs.readDir('C:/Users/Public/Desktop')
+  } catch (e) {
+    console.error('加载桌面图标失败', e)
   }
+})
+
+const getAppIcon = (appId: string) => appRegistry[appId]?.icon || '/icons/default.svg'
+
+const open = (iconData: any) => {
+  sys.openApp(iconData.appId, { path: iconData.path })
 }
 
-onMounted(() => {
-  window.addEventListener('vfs-open-file', handleGlobalFileOpen)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('vfs-open-file', handleGlobalFileOpen)
-})
+const handleDesktopContextMenu = (e: MouseEvent) => {
+  showMenu(e, [
+    { label: '查看 (V)', action: () => console.log('查看') },
+    { label: '排序方式 (O)', action: () => console.log('排序') },
+    { label: '刷新 (E)', divided: true, action: () => window.location.reload() },
+    { label: '新建 (W)', action: () => console.log('新建') },
+    { label: '个性化 (R)', action: () => sys.openApp('settings') }
+  ])
+}
 </script>
 
 <style scoped>
-/* 使用 fixed + inset 确保占满视口且不触发外部滚动 */
 .desktop-shell {
-  position: fixed;
-  inset: 0;
+  width: 100vw;
+  height: calc(100vh - 48px); /* 留出任务栏空间 */
+  position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #1b2340 0%, #0e1528 100%);
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
-
-/* 背景层：提供渐变并作为 fallback 色 */
-.desktop-background {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-color: #0e1528;
-  /* fallback */
-  background-image:
-    radial-gradient(circle at 10% 10%, rgba(84, 94, 255, 0.18), transparent 30%),
-    linear-gradient(135deg, #1b2340 0%, #0e1528 100%);
-  pointer-events: none;
+.desktop-grid {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  height: 100%;
+  padding: 10px;
+  gap: 10px;
 }
-
-/* 窗口层放在背景之上 */
-.window-layer {
-  position: absolute;
-  inset: 0;
-  padding: 12px;
-  z-index: 10;
-  pointer-events: none;
-  /* 单个窗口接收事件 */
+.desktop-icon {
+  width: 74px;
+  height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  cursor: default;
 }
-
-.window-layer > * {
-  pointer-events: auto;
+.desktop-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
-
-/* 确保任务栏始终在最上层 */
-:deep(.taskbar) {
-  z-index: 30;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.desktop-icon img {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 5px;
+}
+.desktop-icon span {
+  font-size: 12px;
+  text-align: center;
+  word-break: break-all;
 }
 </style>

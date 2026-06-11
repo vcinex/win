@@ -1,44 +1,29 @@
-import type { AppDefinition } from '@/types/system'
-import { Welcome, TextEditor, Explorer } from '@/components/apps'
+import { defineAsyncComponent } from 'vue'
+import type { AppConfig } from '../types/system'
 
-const registry = new Map<string, AppDefinition>()
+// 异步加载应用组件，提升系统初始加载速度
+const Explorer = defineAsyncComponent(
+  () => import('../components/apps/Explorer/views/Win11Explorer.vue')
+)
+const TextEditor = defineAsyncComponent(() => import('../components/apps/TextEditor/index.vue'))
 
-export function registerApp(app: AppDefinition) {
-  if (!app.id) return
-  registry.set(app.id, app)
+export const appRegistry: Record<string, AppConfig> = {
+  explorer: {
+    id: 'explorer',
+    name: '文件资源管理器',
+    icon: '/icons/folder.svg', // 请确保public有此图标，或替换为现有图标
+    component: Explorer,
+    defaultWidth: 800,
+    defaultHeight: 600,
+    resizable: true
+  },
+  notepad: {
+    id: 'notepad',
+    name: '记事本',
+    icon: '/icons/notepad.svg',
+    component: TextEditor,
+    defaultWidth: 600,
+    defaultHeight: 400,
+    resizable: true
+  }
 }
-
-export function getApp(id: string) {
-  return registry.get(id)
-}
-
-export function listApps() {
-  return Array.from(registry.values())
-}
-
-registerApp({
-  id: 'hello-world',
-  title: 'Welcome',
-  icon: '🌐',
-  component: Welcome,
-  defaultSize: { width: 560, height: 420 },
-  single: true
-})
-
-registerApp({
-  id: 'text-editor',
-  title: '文本编辑器',
-  icon: '📝',
-  component: TextEditor,
-  defaultSize: { width: 900, height: 600 },
-  single: false
-})
-
-registerApp({
-  id: 'file-explorer',
-  title: '资源管理器',
-  icon: '📁',
-  component: Explorer,
-  defaultSize: { width: 850, height: 550 },
-  single: false
-})

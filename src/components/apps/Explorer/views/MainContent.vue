@@ -77,7 +77,7 @@ const emit = defineEmits([
   'handle-move-items'
 ])
 
-const visibleContents = computed(() => props.displayedContents.slice(0, 200))
+const visibleContents = computed(() => props.displayedContents?.slice(0, 200))
 
 const sortIcon = (field: string) => (props.sortField === field ? (props.sortDesc ? '↓' : '↑') : '')
 

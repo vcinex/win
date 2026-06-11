@@ -1,6 +1,6 @@
 <template>
   <div class="status-bar">
-    <div class="status-item">{{ displayedContents.length }} 个项目</div>
+    <div class="status-item">{{ displayedContents?.length }} 个项目</div>
     <div v-if="selectedItem" class="status-divider"></div>
     <div v-if="selectedItem" class="status-item">选中 1 个项目</div>
     <div class="status-spacer"></div>
