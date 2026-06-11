@@ -1,55 +1,68 @@
-import { defineStore } from 'pinia'
+import { reactive, computed, provide, inject } from 'vue'
 
-export const useExplorerStore = defineStore('explorer', {
-  state: () => ({
+export const ExplorerStoreSymbol = Symbol('ExplorerStore')
+
+export function createExplorerStore() {
+  const state = reactive({
     history: ['C:/Users/Admin'] as string[],
     historyIndex: 0
-  }),
+  })
 
-  getters: {
-    // 当前激活路径
-    currentPath: (state): string => {
-      return state.history[state.historyIndex] ?? ''
-    },
-    // 路径分段（C:/Users/Admin → ['C:','Users','Admin']）
-    pathSegments: (state): string[] => {
-      const path = state.history[state.historyIndex] ?? ''
-      return path.split('/').filter((s) => s.trim() !== '')
-    },
-    // 是否可以后退
-    canGoBack: (state): boolean => state.historyIndex > 0,
-    // 是否可以前进
-    canGoForward: (state): boolean => state.historyIndex < state.history.length - 1
-  },
+  // === 派生状态 ===
+  const currentPath = computed(() => state.history[state.historyIndex] ?? '')
+  const pathSegments = computed(() => {
+    const path = state.history[state.historyIndex] ?? ''
+    return path.split('/').filter((s) => s.trim() !== '')
+  })
 
-  actions: {
-    // 后退
-    goBack() {
-      if (this.canGoBack) {
-        this.historyIndex--
-      }
-    },
+  const canGoBack = computed(() => state.historyIndex > 0)
+  const canGoForward = computed(() => state.historyIndex < state.history.length - 1)
 
-    // 前进
-    goForward() {
-      if (this.canGoForward) {
-        this.historyIndex++
-      }
-    },
+  // === 导航方法 ===
+  function goBack() {
+    if (canGoBack.value) state.historyIndex--
+  }
 
-    // 推入新路径，截断后方历史（浏览器地址栏逻辑）
-    pushPath(path: string) {
-      // 截断当前索引之后的历史
-      this.history.splice(this.historyIndex + 1)
-      this.history.push(path)
-      this.historyIndex = this.history.length - 1
-    },
+  function goForward() {
+    if (canGoForward.value) state.historyIndex++
+  }
 
-    // 直接跳转历史内某一条（点击历史记录）
-    jumpToHistory(index: number) {
-      if (index >= 0 && index < this.history.length) {
-        this.historyIndex = index
-      }
+  function pushPath(path: string) {
+    if (currentPath.value === path) return
+    state.history.splice(state.historyIndex + 1)
+    state.history.push(path)
+    state.historyIndex = state.history.length - 1
+  }
+
+  function jumpToHistory(index: number) {
+    if (index >= 0 && index < state.history.length) {
+      state.historyIndex = index
     }
   }
-})
+
+  const store = {
+    state,
+    currentPath,
+    pathSegments,
+    canGoBack,
+    canGoForward,
+    goBack,
+    goForward,
+    pushPath,
+    jumpToHistory
+  }
+
+  // 依赖注入：如果有深层子组件需要该状态，可以通过 inject(ExplorerStoreSymbol) 无缝共享
+  provide(ExplorerStoreSymbol, store)
+
+  return store
+}
+
+// 可选：提供给子组件接入最近一层局部 Store 使用
+export function useExplorerStore() {
+  const store = inject(ExplorerStoreSymbol)
+  if (!store) {
+    throw new Error('useExplorerStore 必须在 Explorer 实例组件树内使用')
+  }
+  return store as ReturnType<typeof createExplorerStore>
+}

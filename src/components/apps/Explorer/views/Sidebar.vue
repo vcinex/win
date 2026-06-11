@@ -95,6 +95,7 @@ const navigateTo = (path: string) => {
 <style scoped>
 .sidebar {
   width: 160px;
+  flex-shrink: 0; /* 关键：防止侧边栏被右侧内容挤压消失 */
   background-color: #f3f3f3;
   padding: 12px 8px;
   overflow-y: auto;

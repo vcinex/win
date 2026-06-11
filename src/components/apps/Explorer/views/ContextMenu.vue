@@ -1,144 +1,140 @@
 <template>
-  <div
-    v-if="contextMenu.visible"
-    class="context-menu win11-menu"
-    :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-    @click.stop
-  >
-    <template v-if="contextMenu.targetItem">
-      <div class="menu-item bold" @click="handleItemOpen(contextMenu.targetItem)">
-        <span class="menu-icon">📂</span>
-        打开
+  <Teleport to="body">
+    <div
+      v-if="contextMenu.visible"
+      ref="menuRef"
+      class="win11-context-menu"
+      :style="{ top: `${adjustedY}px`, left: `${adjustedX}px` }"
+      @click.stop
+      @contextmenu.prevent
+    >
+      <div v-if="contextMenu.targetItem">
+        <div class="menu-item" @click="$emit('handle-item-open', contextMenu.targetItem)">
+          <span class="icon">📂</span>
+          打开
+        </div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" @click="$emit('handle-cut')">
+          <span class="icon">✂️</span>
+          剪切 (Ctrl+X)
+        </div>
+        <div class="menu-item" @click="$emit('handle-copy')">
+          <span class="icon">📄</span>
+          复制 (Ctrl+C)
+        </div>
+        <div class="menu-item" @click="$emit('handle-rename-selected')">
+          <span class="icon">📝</span>
+          重命名 (F2)
+        </div>
+        <div class="menu-item" @click="$emit('handle-delete-selected')">
+          <span class="icon">🗑️</span>
+          删除 (Del)
+        </div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" @click="$emit('show-properties', contextMenu.targetItem)">
+          <span class="icon">ℹ️</span>
+          属性
+        </div>
       </div>
-      <div class="menu-separator"></div>
-      <div class="menu-item" @click="$emit('handle-cut')">
-        <span class="menu-icon">✂️</span>
-        剪切
+      <div v-else>
+        <div
+          class="menu-item"
+          :class="{ disabled: !clipboard }"
+          @click="clipboard && $emit('handle-paste')"
+        >
+          <span class="icon">📋</span>
+          粘贴 (Ctrl+V)
+        </div>
+        <div class="menu-separator"></div>
+        <div class="menu-item" @click="$emit('handle-new-folder')">
+          <span class="icon">📁</span>
+          新建文件夹
+        </div>
+        <div class="menu-item" @click="$emit('handle-new-file')">
+          <span class="icon">📄</span>
+          新建文本文档
+        </div>
       </div>
-      <div class="menu-item" @click="$emit('handle-copy')">
-        <span class="menu-icon">📋</span>
-        复制
-      </div>
-      <div class="menu-item" @click="$emit('handle-rename-selected')">
-        <span class="menu-icon">📝</span>
-        重命名
-      </div>
-      <div class="menu-item" @click="$emit('handle-delete-selected')">
-        <span class="menu-icon text-danger">🗑️</span>
-        <span class="text-danger">删除</span>
-      </div>
-      <div class="menu-separator"></div>
-      <div class="menu-item" @click="$emit('show-properties', contextMenu.targetItem)">
-        <span class="menu-icon">ℹ️</span>
-        属性
-      </div>
-    </template>
-    <template v-else>
-      <div class="menu-item" :class="{ disabled: !clipboard }" @click="$emit('handle-paste')">
-        <span class="menu-icon">📥</span>
-        粘贴
-      </div>
-      <div class="menu-separator"></div>
-      <div class="menu-item" @click="$emit('handle-new-folder')">
-        <span class="menu-icon">📁</span>
-        新建文件夹
-      </div>
-      <div class="menu-item" @click="$emit('handle-new-file')">
-        <span class="menu-icon">📄</span>
-        新建文本文档
-      </div>
-    </template>
-  </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import type { FileMetadata } from '@/services/fs'
+import { ref, watch, nextTick } from 'vue'
 
-interface ContextMenuData {
-  visible: boolean
-  x: number
-  y: number
-  targetItem: FileMetadata | null
-}
-
-interface Props {
-  contextMenu: ContextMenuData
-  selectedItemMeta: FileMetadata | null
-  clipboard: { type: 'copy' | 'cut'; path: string; itemType: FileMetadata['type'] } | null
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const props = defineProps<Props>()
-
-const emit = defineEmits<{
-  'handle-item-open': [item: FileMetadata]
-  'handle-cut': []
-  'handle-copy': []
-  'handle-rename-selected': [newName: string]
-  'handle-delete-selected': []
-  'show-properties': [item: FileMetadata | null]
-  'handle-paste': []
-  'handle-new-folder': []
-  'handle-new-file': []
-  'close-context-menu': []
+const props = defineProps<{
+  contextMenu: { visible: boolean; x: number; y: number; targetItem: any | null }
+  clipboard: any | null
 }>()
 
-const handleItemOpen = (item: FileMetadata) => {
-  emit('handle-item-open', item)
-}
+defineEmits([
+  'handle-item-open',
+  'handle-cut',
+  'handle-copy',
+  'handle-rename-selected',
+  'handle-delete-selected',
+  'handle-paste',
+  'handle-new-folder',
+  'handle-new-file',
+  'show-properties'
+])
+
+const menuRef = ref<HTMLElement | null>(null)
+const adjustedX = ref(0)
+const adjustedY = ref(0)
+
+// 监听菜单显示，计算防越界坐标
+watch(
+  () => props.contextMenu.visible,
+  async (isVisible) => {
+    if (isVisible) {
+      adjustedX.value = props.contextMenu.x
+      adjustedY.value = props.contextMenu.y
+      await nextTick()
+      if (menuRef.value) {
+        const rect = menuRef.value.getBoundingClientRect()
+        const winWidth = window.innerWidth
+        const winHeight = window.innerHeight
+        if (adjustedX.value + rect.width > winWidth) adjustedX.value -= rect.width
+        if (adjustedY.value + rect.height > winHeight) adjustedY.value -= rect.height
+      }
+    }
+  }
+)
 </script>
 
 <style scoped>
-.context-menu {
-  position: absolute;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+.win11-context-menu {
+  position: fixed;
+  z-index: 99999;
+  background: rgba(243, 243, 243, 0.85);
+  backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   padding: 4px;
-  z-index: 1000;
   min-width: 200px;
-  font-size: 13px;
+  font-size: 12px;
+  color: #202020;
 }
-
 .menu-item {
-  display: flex;
-  align-items: center;
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
-  color: #1a1a1a;
-  margin: 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-
 .menu-item:hover:not(.disabled) {
-  background-color: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.05);
 }
-
 .menu-item.disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
-
-.menu-item.bold {
-  font-weight: 600;
-}
-
-.menu-icon {
-  font-size: 16px;
-  margin-right: 12px;
-  width: 20px;
-  text-align: center;
-}
-
 .menu-separator {
   height: 1px;
-  background-color: #e5e5e5;
+  background: rgba(0, 0, 0, 0.1);
   margin: 4px 0;
-}
-
-.text-danger {
-  color: #d13438;
 }
 </style>

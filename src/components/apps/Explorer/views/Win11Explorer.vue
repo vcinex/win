@@ -1,13 +1,13 @@
 <template>
-  <div class="win11-explorer" @click="handleGlobalClick">
+  <div class="win11-explorer" tabindex="-1" @click="handleGlobalClick">
     <AddressBar
       ref="addressBarRef"
       :current-path="currentPath"
       :path-segments="pathSegments"
       :is-editing-path="isEditingPath"
       :path-input="pathInput"
-      :can-go-back="historyIndex > 0"
-      :can-go-forward="historyIndex < history.length - 1"
+      :can-go-back="explorerStore.canGoBack.value"
+      :can-go-forward="explorerStore.canGoForward.value"
       @navigate-to="navigateTo"
       @navigate-to-segment="navigateToSegment"
       @go-up="goUp"
@@ -17,15 +17,16 @@
       @submit-path="submitPath"
       @force-refresh="forceRefresh"
       @update:path-input="updatePathInput"
+      @search-change="(val) => (searchQuery = val)"
     />
 
     <CommandBar
-      :selected-item="selectedItem"
+      :selected-item="firstSelectedItem"
       :clipboard="clipboard"
       :new-menu-visible="newMenuVisible"
       :sort-label="sortLabel"
       :view-mode="viewMode"
-      :selected-item-meta="null"
+      :selected-item-meta="selectedItemMeta"
       @handle-new-file="handleNewFile"
       @handle-new-folder="handleNewFolder"
       @toggle-new-menu="toggleNewMenu"
@@ -41,26 +42,29 @@
     />
 
     <MainContent
+      ref="mainContentRef"
       :current-path="currentPath"
       :clipboard="clipboard"
       :displayed-contents="displayedContents"
-      :selected-item="selectedItem"
+      :selected-items="selectedItems"
       :view-mode="viewMode"
       :sort-field="sortField"
       :sort-desc="sortDesc"
       :search-query="searchQuery"
       @select-item="selectItem"
+      @clear-selection="clearSelection"
       @handle-item-open="handleItemOpen"
       @open-item-context-menu="openItemContextMenu"
       @open-blank-context-menu="openBlankContextMenu"
       @change-sort="changeSort"
       @navigate-to="navigateTo"
       @handle-rename-selected="handleRenameSelected"
+      @handle-move-items="handleMoveItems"
     />
 
     <StatusBar
       :displayed-contents="displayedContents"
-      :selected-item="selectedItem"
+      :selected-item="firstSelectedItem"
       :view-mode="viewMode"
       @set-view-mode="setViewMode"
     />
@@ -92,30 +96,27 @@ import StatusBar from './StatusBar.vue'
 import ContextMenu from './ContextMenu.vue'
 import { useFileSystem } from '@/composables/useFileSystem'
 import type { FileMetadata } from '@/services/fs'
-import { useExplorerStore } from '../store/index'
-const explorerStore = useExplorerStore()
+import { createExplorerStore } from '../store/index'
+
+// 初始化局部 Store
+const explorerStore = createExplorerStore()
 
 const { readDirectory, writeFile, readFile, createDirectory, deleteFile, renameFile, getMetadata } =
   useFileSystem()
 
-// 导航状态
-// const history = ref<string[]>(['C:/Users/Admin'])
-// const historyIndex = ref(0)
-const currentPath = computed(() => explorerStore.history[explorerStore.historyIndex] ?? '')
-const pathSegments = computed(() =>
-  currentPath.value ? currentPath.value.split('/').filter((s) => s) : []
-)
+const currentPath = explorerStore.currentPath
+const pathSegments = explorerStore.pathSegments
 
-// 强制刷新 Key
 const refreshKey = ref(0)
-const forceRefresh = () => {
-  refreshKey.value++
-}
+const forceRefresh = () => refreshKey.value++
 
-// === 修复：地址栏点击编辑功能 ===
+// === 引用 ===
+const addressBarRef = ref<any>(null)
+const mainContentRef = ref<any>(null)
+
+// === 地址栏编辑 ===
 const isEditingPath = ref(false)
 const pathInput = ref('')
-const addressBarRef = ref<any>(null)
 
 const updatePathInput = (newValue: string) => {
   pathInput.value = newValue
@@ -125,19 +126,14 @@ const startEditingPath = async () => {
   isEditingPath.value = true
   pathInput.value = currentPath.value === '' ? '此电脑' : currentPath.value
   await nextTick()
-  // 如果 AddressBar 有聚焦方法，可以调用
-  if (addressBarRef.value && addressBarRef.value.focusPathInput) {
-    addressBarRef.value.focusPathInput()
-  }
+  if (addressBarRef.value?.focusPathInput) addressBarRef.value.focusPathInput()
 }
 
 const submitPath = () => {
   isEditingPath.value = false
-  // 兼容反斜杠和末尾多余的斜杠
   let target = pathInput.value.trim().replace(/\\/g, '/').replace(/\/$/, '')
   if (target === '此电脑' || target.toLowerCase() === 'this pc') target = ''
 
-  // 验证路径合法性（是根目录，或者在元数据中存在，或者能读出子项）
   if (target === '' || getMetadata(target) || readDirectory(target).length >= 0) {
     navigateTo(target)
   } else {
@@ -145,7 +141,7 @@ const submitPath = () => {
   }
 }
 
-// === 搜索、排序、视图状态 ===
+// === 搜索与视图 ===
 const searchQuery = ref('')
 const sortField = ref<'name' | 'mtime' | 'size' | 'type'>('name')
 const sortDesc = ref(false)
@@ -157,13 +153,20 @@ const sortLabel = computed(() => {
   return '按大小'
 })
 
-// === 剪贴板状态 ===
-const clipboard = ref<{
-  type: 'copy' | 'cut'
-  path: string
-  itemType: FileMetadata['type']
-} | null>(null)
+// === 多选状态 ===
+const selectedItems = ref<Set<string>>(new Set())
+const lastSelectedIndex = ref<number>(-1)
 
+// 从多选集合中取第一个，用于属性展示或单选特有操作（如重命名）
+const firstSelectedItem = computed(() => {
+  if (selectedItems.value.size === 0) return null
+  return Array.from(selectedItems.value)[0]
+})
+const selectedItemMeta = computed(() =>
+  firstSelectedItem.value ? getMetadata(firstSelectedItem.value) : null
+)
+
+// 获取当前目录过滤后的展示列表
 const displayedContents = computed(() => {
   let list = readDirectory(currentPath.value)
   if (searchQuery.value) {
@@ -182,12 +185,34 @@ const displayedContents = computed(() => {
   return list
 })
 
-// === 菜单与选中状态 ===
-const selectedItem = ref<string | null>(null)
-const selectedItemMeta = computed(() =>
-  selectedItem.value ? getMetadata(selectedItem.value) : null
-)
+// 多选处理逻辑
+const selectItem = (payload: { path: string; ctrlKey: boolean; shiftKey: boolean }) => {
+  const { path, ctrlKey, shiftKey } = payload
+  const items = displayedContents.value
+  const currentIndex = items.findIndex((i) => i.path === path)
 
+  if (shiftKey && lastSelectedIndex.value !== -1) {
+    selectedItems.value.clear()
+    const start = Math.min(lastSelectedIndex.value, currentIndex)
+    const end = Math.max(lastSelectedIndex.value, currentIndex)
+    for (let i = start; i <= end; i++) selectedItems.value.add(items[i].path)
+  } else if (ctrlKey) {
+    if (selectedItems.value.has(path)) selectedItems.value.delete(path)
+    else selectedItems.value.add(path)
+    lastSelectedIndex.value = currentIndex
+  } else {
+    selectedItems.value.clear()
+    selectedItems.value.add(path)
+    lastSelectedIndex.value = currentIndex
+  }
+}
+
+const clearSelection = () => {
+  selectedItems.value.clear()
+  lastSelectedIndex.value = -1
+}
+
+// === 菜单状态 ===
 const contextMenu = ref({ visible: false, x: 0, y: 0, targetItem: null as FileMetadata | null })
 const newMenuVisible = ref(false)
 
@@ -196,18 +221,17 @@ const toggleNewMenu = () => {
   contextMenu.value.visible = false
 }
 
-// 全局点击清空状态
 const handleGlobalClick = () => {
   contextMenu.value.visible = false
   newMenuVisible.value = false
-  clearSelection()
+  // 仅当点击了组件的最外层时清空选择（组件内部事件已被 stop 拦截）
 }
 
-onMounted(() => window.addEventListener('click', handleGlobalClick))
-onUnmounted(() => window.removeEventListener('click', handleGlobalClick))
-
 const openItemContextMenu = (e: MouseEvent, item: FileMetadata) => {
-  selectItem(item.path)
+  // 如果当前点击的项不在多选列表中，则单选该项；否则保持多选状态并拉起菜单
+  if (!selectedItems.value.has(item.path)) {
+    selectItem({ path: item.path, ctrlKey: false, shiftKey: false })
+  }
   newMenuVisible.value = false
   contextMenu.value = { visible: true, x: e.clientX, y: e.clientY, targetItem: item }
 }
@@ -217,27 +241,24 @@ const openBlankContextMenu = (e: MouseEvent) => {
   newMenuVisible.value = false
   contextMenu.value = { visible: true, x: e.clientX, y: e.clientY, targetItem: null }
 }
+const closeContextMenu = () => {
+  contextMenu.value.visible = false
+}
 
 // === 导航方法 ===
 const navigateTo = (path: string) => {
   if (currentPath.value === path) return
-  history.value = history.value.slice(0, historyIndex.value + 1)
-  history.value.push(path)
-  historyIndex.value++
+  explorerStore.pushPath(path)
   clearSelection()
   searchQuery.value = ''
 }
 const goBack = () => {
-  if (historyIndex.value > 0) {
-    historyIndex.value--
-    clearSelection()
-  }
+  explorerStore.goBack()
+  clearSelection()
 }
 const goForward = () => {
-  if (historyIndex.value < history.value.length - 1) {
-    historyIndex.value++
-    clearSelection()
-  }
+  explorerStore.goForward()
+  clearSelection()
 }
 const goUp = () => {
   if (currentPath.value === '') return
@@ -247,21 +268,11 @@ const goUp = () => {
 }
 const navigateToSegment = (index: number) => {
   const pathParts = [...pathSegments.value]
-  if (currentPath.value === '') {
-    // 如果当前路径为空（显示"此电脑"），则直接导航到第一个段
-    navigateTo(pathParts[index] || '')
-  } else {
-    navigateTo(pathParts.slice(0, index + 1).join('/'))
-  }
+  if (currentPath.value === '') navigateTo(pathParts[index] || '')
+  else navigateTo(pathParts.slice(0, index + 1).join('/'))
 }
 
-// === UI 交互 ===
-const selectItem = (path: string) => {
-  selectedItem.value = path
-}
-const clearSelection = () => {
-  selectedItem.value = null
-}
+// === UI 交互辅助 ===
 const changeSort = (field: 'name' | 'mtime' | 'size' | 'type') => {
   if (sortField.value === field) sortDesc.value = !sortDesc.value
   else {
@@ -290,13 +301,12 @@ const handleItemOpen = (item: FileMetadata) => {
     )
 }
 
-// === 修复：智能防重名的方法 ===
+// === 智能防重名 ===
 const getUniqueName = (baseName: string, ext: string = '') => {
   let name = ext ? `${baseName}${ext}` : baseName
   let counter = 1
   let testPath = currentPath.value === '' ? name : `${currentPath.value}/${name}`
 
-  // 如果遇到重名文件，自动追加 (2), (3)...
   while (getMetadata(testPath)) {
     counter++
     name = ext ? `${baseName} (${counter})${ext}` : `${baseName} (${counter})`
@@ -327,133 +337,178 @@ const handleNewFile = () => {
   }
 }
 
-// === 剪贴板真实业务逻辑 ===
+// === 剪贴板真实业务逻辑 (支持数组) ===
+const clipboard = ref<{ type: 'copy' | 'cut'; paths: string[] } | null>(null)
+
 const handleCut = () => {
-  if (!selectedItemMeta.value) return
-  clipboard.value = {
-    type: 'cut',
-    path: selectedItemMeta.value.path,
-    itemType: selectedItemMeta.value.type
+  if (selectedItems.value.size) {
+    clipboard.value = { type: 'cut', paths: Array.from(selectedItems.value) }
+    contextMenu.value.visible = false
   }
 }
 const handleCopy = () => {
-  if (!selectedItemMeta.value) return
-  clipboard.value = {
-    type: 'copy',
-    path: selectedItemMeta.value.path,
-    itemType: selectedItemMeta.value.type
+  if (selectedItems.value.size) {
+    clipboard.value = { type: 'copy', paths: Array.from(selectedItems.value) }
+    contextMenu.value.visible = false
   }
 }
 const handlePaste = async () => {
+  contextMenu.value.visible = false
   if (!clipboard.value) return
-  const { type, path, itemType } = clipboard.value
-  let fileName = path.split('/').pop() || '未命名'
+  const { type, paths } = clipboard.value
 
-  let targetPath = currentPath.value === '' ? fileName : `${currentPath.value}/${fileName}`
-  if (getMetadata(targetPath) && type === 'copy') {
-    const parts = fileName.split('.')
-    const ext = parts.length > 1 ? `.${parts.pop()}` : ''
-    fileName = `${parts.join('.')} - 副本${ext}`
-    targetPath = currentPath.value === '' ? fileName : `${currentPath.value}/${fileName}`
+  for (const srcPath of paths) {
+    let fileName = srcPath.split('/').pop() || '未命名'
+    let targetPath = currentPath.value === '' ? fileName : `${currentPath.value}/${fileName}`
+
+    // 处理防重名（当在同目录下复制时）
+    if (getMetadata(targetPath) && type === 'copy') {
+      const parts = fileName.split('.')
+      const ext = parts.length > 1 ? `.${parts.pop()}` : ''
+      fileName = `${parts.join('.')} - 副本${ext}`
+      targetPath = currentPath.value === '' ? fileName : `${currentPath.value}/${fileName}`
+    }
+
+    if (type === 'cut') {
+      await renameFile(srcPath, targetPath)
+    } else {
+      const meta = getMetadata(srcPath)
+      if (meta?.type === 'file') {
+        const content = await readFile(srcPath)
+        if (content !== null) writeFile(targetPath, content)
+      }
+    }
   }
 
-  if (type === 'cut') {
-    if (await renameFile(path, targetPath)) clipboard.value = null
-    else alert('移动失败：目标可能已存在。')
-  } else {
-    if (itemType === 'file') {
-      const content = await readFile(path)
-      if (content !== null) writeFile(targetPath, content)
-    } else alert('虚拟系统暂不支持复制整个文件夹，请使用剪切或进入内部复制。')
+  if (type === 'cut') clipboard.value = null
+  forceRefresh()
+}
+
+// === 拖拽移动 ===
+const handleMoveItems = async (sourcePaths: string[], targetDir: string) => {
+  for (const src of sourcePaths) {
+    const fileName = src.split('/').pop()
+    await renameFile(src, `${targetDir}/${fileName}`)
   }
+  clearSelection()
   forceRefresh()
 }
 
 // === 其它原生级操作 ===
 const handleShare = async () => {
-  if (!selectedItemMeta.value) return
+  if (!firstSelectedItem.value) return
   try {
     await navigator.share({
-      title: selectedItemMeta.value.name,
-      text: `分享文件: ${selectedItemMeta.value.name}`,
+      title: '分享文件',
+      text: `分享 ${selectedItems.value.size} 个项目`,
       url: window.location.href
     })
   } catch (err) {
-    alert(
-      `系统不支持 Share API：欲分享 [${selectedItemMeta.value.name}， ${err instanceof Error ? (err as Error).message : JSON.stringify(err)}]`
-    )
+    alert(`系统不支持 Share API，或分享失败。`)
   }
 }
 const showProperties = (item: FileMetadata | null) => {
   if (!item) return
-  alert(
-    `【文件属性】\n\n名称：${item.name}\n类型：${getTypeName(item)}\n位置：${item.path}\n大小：${formatSize(item.size)}\n修改时间：${formatDate(item.mtime)}`
-  )
+  contextMenu.value.visible = false
+  alert(`名称：${item.name}\n位置：${item.path}\n大小：${item.size} bytes`)
 }
 const handleDeleteSelected = () => {
-  if (selectedItem.value && confirm(`确定要永久删除此项吗？`)) {
-    deleteFile(selectedItem.value)
-    if (clipboard.value?.path === selectedItem.value) clipboard.value = null
-    selectedItem.value = null
-    forceRefresh()
-  }
-}
-const handleRenameSelected = (newName: string) => {
-  if (!selectedItem.value) return
-  const oldName = selectedItem.value.split('/').pop() || ''
-  // const newName = prompt('重命名为:', oldName)
-  if (newName && newName !== oldName) {
-    const basePath = currentPath.value === '' ? '' : currentPath.value + '/'
-    renameFile(selectedItem.value, basePath + newName)
-    selectedItem.value = basePath + newName
-    forceRefresh()
-  }
-}
-
-// === 辅助格式化 ===
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getIcon = (item: FileMetadata) => {
-  if (item.type === 'directory') return item.path.includes('/') ? '📁' : '💾'
-  const ext = item.name.split('.').pop()?.toLowerCase()
-  if (ext === 'txt') return '📝'
-  if (ext === 'md') return '📓'
-  if (ext === 'png' || ext === 'jpg') return '🖼️'
-  return '📄'
-}
-const getTypeName = (item: FileMetadata) => {
-  if (item.type === 'directory') return item.path.includes('/') ? '文件夹' : '本地磁盘'
-  const ext = item.name.split('.').pop()?.toLowerCase()
-  if (ext === 'txt') return '文本文档'
-  if (ext === 'png') return 'PNG 图像'
-  return '文件'
-}
-const formatSize = (bytes: number) => {
-  if (bytes === 0) return '0 KB'
-  const k = 1024
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + ['B', 'KB', 'MB'][i]
-}
-const formatDate = (ts: number) => {
-  const d = new Date(ts)
-  return `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-}
-
-// ContextMenu 方法
-const closeContextMenu = () => {
   contextMenu.value.visible = false
+  if (selectedItems.value.size && confirm(`确定要永久删除这 ${selectedItems.value.size} 项吗？`)) {
+    selectedItems.value.forEach((path) => deleteFile(path))
+    clearSelection()
+    forceRefresh()
+  }
 }
+
+// 重命名逻辑 (结合 MainContent 内联方法)
+const handleRenameSelected = (newName?: string | Event) => {
+  contextMenu.value.visible = false
+  if (selectedItems.value.size !== 1) return // 只能对单个文件重命名
+
+  const targetPath = firstSelectedItem.value!
+
+  if (typeof newName === 'string' && newName.trim()) {
+    // 收到子组件提交的真实改名
+    const oldName = targetPath.split('/').pop() || ''
+    const finalName = newName.trim()
+    if (finalName && finalName !== oldName) {
+      const basePath = currentPath.value === '' ? '' : currentPath.value + '/'
+      renameFile(targetPath, basePath + finalName)
+      clearSelection()
+      selectItem({ path: basePath + finalName, ctrlKey: false, shiftKey: false })
+      forceRefresh()
+    }
+  } else {
+    // 拉起内联输入框
+    if (mainContentRef.value) {
+      mainContentRef.value.startRename(targetPath)
+    }
+  }
+}
+
+// === 全局快捷键系统 ===
+const handleKeyDown = (e: KeyboardEvent) => {
+  // 当用户在地址栏或重命名输入框中打字时，不触发全局快捷键
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 'c':
+        handleCopy()
+        break
+      case 'x':
+        handleCut()
+        break
+      case 'v':
+        handlePaste()
+        break
+      case 'a':
+        e.preventDefault()
+        selectedItems.value = new Set(displayedContents.value.map((i) => i.path))
+        break
+    }
+  } else {
+    switch (e.key) {
+      case 'Delete':
+        handleDeleteSelected()
+        break
+      case 'F2':
+        handleRenameSelected()
+        break
+      case 'Backspace':
+        e.preventDefault()
+        goUp()
+        break
+      case 'Enter':
+        if (selectedItems.value.size === 1) {
+          const meta = getMetadata(firstSelectedItem.value!)
+          if (meta) handleItemOpen(meta)
+        }
+        break
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <style scoped>
-/* 全局基础与配色 */
 .win11-explorer {
   display: flex;
   flex-direction: column;
   height: 100%;
-  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  background-color: #f3f3f3;
-  color: #1a1a1a;
-  user-select: none;
-  position: relative;
+  background: var(--win-bg, #ffffff);
+  color: var(--win-text, #202020);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  user-select: none; /* 防止多选时选中文本 */
+  outline: none; /* 去除获取焦点时的边框 */
 }
+
+/* 如果你的系统有暗黑模式 CSS 变量，可以在此处增加 */
 </style>
