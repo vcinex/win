@@ -37,12 +37,19 @@
       <span class="spacer"></span>
       <span>大小: {{ byteSize }} bytes</span>
     </div>
+
+    <FileDialog v-if="isFilePickerOpen" @save="executeSave" @cancel="isFilePickerOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useFileSystem } from '@/composables/useFileSystem'
+import FileDialog from '@/components/system/FileDialog/index.vue'
+import { useNotification } from '@/composables/useNotification'
+
+const { notify } = useNotification()
+const isFilePickerOpen = ref(false)
 
 const props = defineProps<{ currentFilePath?: string }>()
 const { readFile, writeFile } = useFileSystem() as any // 获取系统的读写能力
@@ -132,22 +139,30 @@ const closeTab = (id: string) => {
 }
 
 // 核心保存逻辑
-const save = async () => {
+// 1. 点击保存按钮触发
+const save = () => {
   if (!activeTab.value.filePath) {
-    const userPath = prompt('请输入你要保存的完整路径：', 'C:/Users/Public/Desktop/未命名.txt')
-    if (!userPath) return // 用户取消
-    activeTab.value.filePath = userPath
+    // 没有路径，弹出系统文件选择器
+    isFilePickerOpen.value = true
+  } else {
+    // 已有路径，直接静默执行保存
+    executeSave(activeTab.value.filePath)
   }
+}
+
+// 2. 真正执行写入与反馈的逻辑
+const executeSave = async (targetPath: string) => {
+  isFilePickerOpen.value = false // 关闭选择器面板
+  activeTab.value.filePath = targetPath
 
   if (writeFile) {
     try {
       await writeFile(activeTab.value.filePath, activeTab.value.content)
-      alert(`保存成功: \n${activeTab.value.filePath}`)
+      // 使用 Win11 全局右下角通知替代原生 alert
+      notify('保存成功', `文件已成功写入至 ${targetPath}`, 'success')
     } catch (e: any) {
-      alert('保存失败，请检查路径是否存在！错误信息: ' + e.message)
+      notify('保存失败', e.message, 'error')
     }
-  } else {
-    alert('系统暂未提供底层写入接口 (writeFile)')
   }
 }
 </script>

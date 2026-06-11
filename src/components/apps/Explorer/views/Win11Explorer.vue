@@ -83,6 +83,7 @@ import { createExplorerStore } from '../store/index'
 import { useFileSystem } from '@/composables/useFileSystem'
 import { useSystemManager } from '@/composables/useSystemManager'
 import { useContextMenu } from '@/composables/useContextMenu'
+import { useDialog } from '@/composables/useDialog'
 
 const props = defineProps<{ pid?: string; path?: string }>()
 
@@ -176,6 +177,8 @@ onMounted(() => {
   if (props.path) pushPath(props.path)
 })
 
+const { showMessage } = useDialog()
+
 // === 导航事件处理 ===
 const navigateTo = (path: string) => pushPath(path)
 const navigateToSegment = (index: number) => {
@@ -228,6 +231,7 @@ const toggleNewMenu = () => {
 const handleNewFolder = async () => {
   newMenuVisible.value = false
   const name = prompt('请输入文件夹名称', '新建文件夹')
+
   if (!name) return
   const mkDirFn = (fs as any).createDirectory || (fs as any).mkdir
   if (mkDirFn) await mkDirFn(`${currentPath.value}/${name}`)
@@ -267,14 +271,20 @@ const handlePaste = async () => {
 }
 
 const handleDeleteSelected = async () => {
-  if (confirm(`确定删除选中的项目吗？`)) {
-    const rmFn = (fs as any).deleteItem || (fs as any).rm
-    for (const p of selectedItems.value) {
-      if (rmFn) await rmFn(p)
+  // 使用系统级 Confirm 替代原生 confirm()
+  showMessage({
+    title: '删除项目',
+    content: '确定要将这些所选项目放入回收站吗？',
+    type: 'confirm',
+    onConfirm: async () => {
+      const rmFn = (fs as any).deleteItem || (fs as any).rm
+      for (const p of selectedItems.value) {
+        if (rmFn) await rmFn(p)
+      }
+      selectedItems.value.clear()
+      fetchContents()
     }
-    selectedItems.value.clear()
-    fetchContents()
-  }
+  })
 }
 
 const handleRenameSelected = async (oldPath: string) => {
