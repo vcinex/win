@@ -11,40 +11,47 @@
     :style="windowStyle"
     @mousedown="onFocus"
   >
-    <header 
-      class="window-titlebar" 
+    <header
+      class="window-titlebar"
       @mousedown="startDrag"
       @dblclick="toggleMaximize"
       @contextmenu="showSystemMenu"
     >
       <span>{{ windowState.title }}</span>
       <div class="window-controls">
-        <button 
-          type="button" 
+        <button
+          type="button"
           class="control-btn minimize-btn"
           :title="windowState.minimized ? '还原' : '最小化'"
           @click.stop="toggleMinimize"
-        >_</button>
-        <button 
-          type="button" 
+        >
+          _
+        </button>
+        <button
+          type="button"
           class="control-btn maximize-btn"
           :title="windowState.maximized ? '向下还原' : '最大化'"
           @click.stop="toggleMaximize"
         >
           <svg v-if="!windowState.maximized" width="10" height="10" viewBox="0 0 10 10">
-            <rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1"/>
+            <rect
+              x="1"
+              y="1"
+              width="8"
+              height="8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+            />
           </svg>
           <svg v-else width="10" height="10" viewBox="0 0 10 10">
-            <path d="M2 3H7V8H2V3Z" fill="none" stroke="currentColor" stroke-width="1"/>
-            <path d="M3 2H8V7H3V2Z" fill="none" stroke="currentColor" stroke-width="1"/>
+            <path d="M2 3H7V8H2V3Z" fill="none" stroke="currentColor" stroke-width="1" />
+            <path d="M3 2H8V7H3V2Z" fill="none" stroke="currentColor" stroke-width="1" />
           </svg>
         </button>
-        <button 
-          type="button" 
-          class="control-btn close-btn"
-          title="关闭"
-          @click.stop="closeWindow"
-        >×</button>
+        <button type="button" class="control-btn close-btn" title="关闭" @click.stop="closeWindow">
+          ×
+        </button>
       </div>
     </header>
 
@@ -52,23 +59,44 @@
       class="window-body"
       :style="{ pointerEvents: isDragging || isResizing ? 'none' : 'auto' }"
     >
-      <component 
-        :is="windowState.component" 
-        :window-id="windowState.id" 
-        v-bind="windowState.props" 
+      <component
+        :is="windowState.component"
+        :window-id="windowState.id"
+        v-bind="windowState.props"
       />
     </section>
 
     <template v-if="!windowState.maximized && !windowState.fullscreen">
       <div class="resize-handle" @mousedown.prevent.stop="startResize"></div>
       <div class="resize-handle-top" @mousedown.prevent.stop="startResizeEdge($event, 'top')"></div>
-      <div class="resize-handle-right" @mousedown.prevent.stop="startResizeEdge($event, 'right')"></div>
-      <div class="resize-handle-bottom" @mousedown.prevent.stop="startResizeEdge($event, 'bottom')"></div>
-      <div class="resize-handle-left" @mousedown.prevent.stop="startResizeEdge($event, 'left')"></div>
-      <div class="resize-handle-top-left" @mousedown.prevent.stop="startResizeCorner($event, 'top-left')"></div>
-      <div class="resize-handle-top-right" @mousedown.prevent.stop="startResizeCorner($event, 'top-right')"></div>
-      <div class="resize-handle-bottom-right" @mousedown.prevent.stop="startResizeCorner($event, 'bottom-right')"></div>
-      <div class="resize-handle-bottom-left" @mousedown.prevent.stop="startResizeCorner($event, 'bottom-left')"></div>
+      <div
+        class="resize-handle-right"
+        @mousedown.prevent.stop="startResizeEdge($event, 'right')"
+      ></div>
+      <div
+        class="resize-handle-bottom"
+        @mousedown.prevent.stop="startResizeEdge($event, 'bottom')"
+      ></div>
+      <div
+        class="resize-handle-left"
+        @mousedown.prevent.stop="startResizeEdge($event, 'left')"
+      ></div>
+      <div
+        class="resize-handle-top-left"
+        @mousedown.prevent.stop="startResizeCorner($event, 'top-left')"
+      ></div>
+      <div
+        class="resize-handle-top-right"
+        @mousedown.prevent.stop="startResizeCorner($event, 'top-right')"
+      ></div>
+      <div
+        class="resize-handle-bottom-right"
+        @mousedown.prevent.stop="startResizeCorner($event, 'bottom-right')"
+      ></div>
+      <div
+        class="resize-handle-bottom-left"
+        @mousedown.prevent.stop="startResizeCorner($event, 'bottom-left')"
+      ></div>
     </template>
   </div>
 </template>
@@ -144,9 +172,10 @@ const windowStyle = computed(() => {
   }
 
   // 边框颜色根据激活状态变化
-  style.borderColor = props.windowState.id === windowStore.activeWindowId 
-    ? 'rgba(90, 124, 255, 0.8)' 
-    : 'rgba(255, 255, 255, 0.08)'
+  style.borderColor =
+    props.windowState.id === windowStore.activeWindowId
+      ? 'rgba(90, 124, 255, 0.8)'
+      : 'rgba(255, 255, 255, 0.08)'
 
   return style
 })
@@ -194,7 +223,7 @@ function startDrag(e: MouseEvent) {
 
   onFocus()
   isDragging.value = true
-  
+
   document.body.classList.add('disable-select')
 
   const startX = e.clientX - props.windowState.position.x
@@ -209,7 +238,7 @@ function startDrag(e: MouseEvent) {
 
     moveEvent.preventDefault()
     moveEvent.stopPropagation()
-    
+
     let newX = moveEvent.clientX - startX
     let newY = moveEvent.clientY - startY
 
@@ -302,7 +331,10 @@ function startResizeEdge(e: MouseEvent, edge: 'top' | 'right' | 'bottom' | 'left
 }
 
 // 角落调整大小
-function startResizeCorner(e: MouseEvent, corner: 'top-left' | 'top-right' | 'bottom-right' | 'bottom-left') {
+function startResizeCorner(
+  e: MouseEvent,
+  corner: 'top-left' | 'top-right' | 'bottom-right' | 'bottom-left'
+) {
   onFocus()
   isResizing.value = true
 
@@ -403,12 +435,12 @@ function toggleMaximize() {
   } else {
     originalSize.value = { ...props.windowState.size }
     originalPosition.value = { ...props.windowState.position }
-    
+
     emit('update', props.windowState.id, {
       maximized: true,
       position: { x: 0, y: 0 },
-      size: { 
-        width: window.innerWidth, 
+      size: {
+        width: window.innerWidth,
         height: window.innerHeight - TITLEBAR_HEIGHT
       }
     })
@@ -423,12 +455,12 @@ function showSystemMenu(e: MouseEvent) {
 // 键盘快捷键处理
 const handleKeyDown = (e: KeyboardEvent) => {
   if (props.windowState.id !== windowStore.activeWindowId) return
-  
+
   if (e.altKey && e.key === ' ') {
     e.preventDefault()
     onFocus()
   }
-  
+
   if (e.ctrlKey && e.altKey && e.key === 'Home') {
     e.preventDefault()
   }
@@ -638,6 +670,6 @@ onUnmounted(() => {
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
   -ms-user-select: none !important;
-  pointer-events: auto; 
+  pointer-events: auto;
 }
 </style>

@@ -7,7 +7,8 @@ import { DesktopShell } from '@/components'
 </script>
 
 <style>
-body, html {
+body,
+html {
   margin: 0;
   padding: 0;
   width: 100%;

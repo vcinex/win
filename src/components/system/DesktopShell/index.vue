@@ -50,7 +50,7 @@ function updateWindow(id: string, updates: Partial<WindowState>) {
 const handleGlobalFileOpen = (event: Event) => {
   const customEvent = event as CustomEvent
   const { appId, filePath } = customEvent.detail
-  
+
   if (appId) {
     // 携带 props 参数拉起目标窗口
     windowManager.openApp(appId, { props: { currentFilePath: filePath } })

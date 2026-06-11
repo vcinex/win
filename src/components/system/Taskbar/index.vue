@@ -4,7 +4,7 @@
       class="start-button"
       @click.stop="windowStore.startMenuOpen = !windowStore.startMenuOpen"
     >
-      Start
+      田
     </button>
 
     <div class="taskbar-windows">
@@ -19,7 +19,7 @@
       </button>
     </div>
 
-    <div class="start-menu" v-show="windowStore.startMenuOpen" @click.stop>
+    <div v-show="windowStore.startMenuOpen" class="start-menu" @click.stop>
       <div class="start-menu-header">
         <span>所有应用</span>
       </div>

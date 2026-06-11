@@ -1,9 +1,25 @@
 {
   "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
+    "strict": true, // 开启所有严格类型检查
+    "noUnusedLocals": true, // 检查未使用的局部变量
+    "noUnusedParameters": true, // 检查未使用的函数参数
+    "noFallthroughCasesInSwitch": true, // 防止 switch 语句贯穿
+    "noImplicitReturns": true, // 强制函数所有路径都有返回值
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
-    }
-    // ... 其他已有配置
-  }
+      "@/*": ["src/*"] // 配置路径别名，提升自动补全体验
+    },
+    "types": ["vite/client", "wicg-file-system-access"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"]
 }

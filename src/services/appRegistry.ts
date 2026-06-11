@@ -1,7 +1,5 @@
 import type { AppDefinition } from '@/types/system'
-import Welcome from '@/components/apps/Welcome/index.vue'
-import TextEditor from '@/components/apps/TextEditor/index.vue'
-import Explorer from '@/components/apps/Explorer/index.vue'
+import { Welcome, TextEditor, Explorer } from '@/components/apps'
 
 const registry = new Map<string, AppDefinition>()
 
@@ -24,7 +22,7 @@ registerApp({
   icon: '🌐',
   component: Welcome,
   defaultSize: { width: 560, height: 420 },
-  single: true,
+  single: true
 })
 
 registerApp({
@@ -33,8 +31,7 @@ registerApp({
   icon: '📝',
   component: TextEditor,
   defaultSize: { width: 900, height: 600 },
-  single: false,
-
+  single: false
 })
 
 registerApp({
@@ -43,5 +40,5 @@ registerApp({
   icon: '📁',
   component: Explorer,
   defaultSize: { width: 850, height: 550 },
-  single: false,
+  single: false
 })

@@ -15,7 +15,7 @@ export interface WindowState {
   appId: string
   title: string
   position: { x: number; y: number }
-  size: { width: number; height: number }
+  size?: { width: number; height: number }
   minimized: boolean
   maximized: boolean
   fullscreen?: boolean
@@ -27,6 +27,7 @@ export interface WindowState {
 
 export interface AppDefinition {
   id: string
+  name?: string
   title: string
   icon?: string
   component: Component

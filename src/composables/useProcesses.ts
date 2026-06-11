@@ -9,14 +9,16 @@ export function useProcesses() {
     const id = `${app.id}-${Date.now()}`
     maxZIndex.value++
     processes.set(id, {
-      id,
+      appId: id,
       title: app.title,
       component: shallowRef(app.component),
       position: { x: 100, y: 100 },
       size: app.defaultSize,
       zIndex: maxZIndex.value,
       active: true,
-      minimize: false
+      minimized: false,
+      maximized: false,
+      id: ''
     })
   }
 

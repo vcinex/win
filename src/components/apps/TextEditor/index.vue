@@ -1,14 +1,19 @@
 <template>
   <div class="editor-root">
-    <div class="tabs-bar" ref="tabsBarRef">
-      <div 
-        v-for="tab in tabs" :key="tab.id" 
-        class="tab-item" 
+    <div ref="tabsBarRef" class="tabs-bar">
+      <div
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="tab-item"
         :class="{ active: activeTabId === tab.id }"
         @click="switchTab(tab.id)"
       >
-        <span class="tab-filename">{{ tab.filePath ? tab.filePath.split('/').pop() : '未命名.txt' }}</span>
-        <button class="close-tab-btn" @click.stop="closeTab(tab.id)" v-if="tabs.length > 1">×</button>
+        <span class="tab-filename">
+          {{ tab.filePath ? tab.filePath.split('/').pop() : '未命名.txt' }}
+        </span>
+        <button v-if="tabs.length > 1" class="close-tab-btn" @click.stop="closeTab(tab.id)">
+          ×
+        </button>
       </div>
       <button class="add-tab-btn" @click.stop="addNewTab">+</button>
     </div>
@@ -16,7 +21,9 @@
     <div class="toolbar">
       <input v-model="activeTab.filePath" class="filename" placeholder="文件名 (例如: note.txt)" />
       <button title="保存" @click="save">保存</button>
-      <button title="关闭当前标签" @click="closeTab(activeTabId)" :disabled="tabs.length <= 1">关闭标签</button>
+      <button title="关闭当前标签" :disabled="tabs.length <= 1" @click="closeTab(activeTabId)">
+        关闭标签
+      </button>
     </div>
 
     <textarea v-model="activeTab.content" class="editor-area" spellcheck="false"></textarea>
@@ -58,26 +65,26 @@ const scrollToRight = () => {
 }
 
 // 初始化或加载标签页
-const initTab = (path?: string) => {
+const initTab = async (path?: string) => {
   const p = path || ''
-  
+
   // 如果该文件已在此实例中打开，则直接切换过去
-  const existing = p && tabs.value.find(t => t.filePath === p)
+  const existing = p && tabs.value.find((t) => t.filePath === p)
   if (existing) {
     activeTabId.value = existing.id
     return
   }
 
-  const content = p ? (readFile(p) || '') : ''
-  const newTab: EditorTab = { 
-    id: `tab_${++tabIdGen.value}`, 
-    filePath: p, 
-    content 
+  const content = p ? (await readFile(p)) || '' : ''
+  const newTab: EditorTab = {
+    id: `tab_${++tabIdGen.value}`,
+    filePath: p,
+    content
   }
-  
+
   tabs.value.push(newTab)
   activeTabId.value = newTab.id
-  
+
   // 等待 DOM 更新后滚动到最右边
   nextTick(() => {
     scrollToRight()
@@ -85,13 +92,17 @@ const initTab = (path?: string) => {
 }
 
 // 监听外界通过 props 传入的文件变化（支持外部通过文件管理器拉起文本编辑器）
-watch(() => props.currentFilePath, (newPath) => {
-  initTab(newPath)
-}, { immediate: true })
+watch(
+  () => props.currentFilePath,
+  (newPath) => {
+    initTab(newPath)
+  },
+  { immediate: true }
+)
 
 // 当前激活的 Tab
 const activeTab = computed(() => {
-  return tabs.value.find(t => t.id === activeTabId.value) ?? { id: '', filePath: '', content: '' }
+  return tabs.value.find((t) => t.id === activeTabId.value) ?? { id: '', filePath: '', content: '' }
 })
 
 // 标签页操作方法
@@ -104,9 +115,9 @@ const addNewTab = () => {
 }
 
 const closeTab = (id: string) => {
-  const index = tabs.value.findIndex(t => t.id === id)
+  const index = tabs.value.findIndex((t) => t.id === id)
   if (index === -1) return
-  
+
   tabs.value.splice(index, 1)
   if (activeTabId.value === id && tabs.value.length > 0) {
     activeTabId.value = tabs.value[Math.min(index, tabs.value.length - 1)].id
@@ -154,14 +165,18 @@ onMounted(() => {
   align-items: center;
   padding: 4px 8px 0 8px;
   gap: 4px;
-  scrollbar-width: none; /* Firefox 隐藏滚动条 */
-  -ms-overflow-style: none; /* IE/Edge 隐藏滚动条 */
-  scroll-behavior: smooth; /* 平滑滚动效果 */
+  scrollbar-width: none;
+  /* Firefox 隐藏滚动条 */
+  -ms-overflow-style: none;
+  /* IE/Edge 隐藏滚动条 */
+  scroll-behavior: smooth;
+  /* 平滑滚动效果 */
 }
 
 /* 隐藏滚动条但保持滚动功能 */
 .tabs-bar::-webkit-scrollbar {
-  display: none; /* Chrome/Safari/Opera 隐藏滚动条 */
+  display: none;
+  /* Chrome/Safari/Opera 隐藏滚动条 */
 }
 
 .tab-item {
@@ -177,8 +192,10 @@ onMounted(() => {
   cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.02);
   border-bottom: none;
-  min-width: 120px; /* 限制最小宽度 */
-  max-width: 240px; /* 限制最大宽度 */
+  min-width: 120px;
+  /* 限制最小宽度 */
+  max-width: 240px;
+  /* 限制最大宽度 */
   transition: all 0.2s ease;
   white-space: nowrap;
   overflow: hidden;
@@ -340,16 +357,16 @@ button:disabled {
     padding: 6px 8px;
     font-size: 11px;
   }
-  
+
   .add-tab-btn {
     min-width: 32px;
     padding: 6px 8px;
   }
-  
+
   .toolbar {
     flex-wrap: wrap;
   }
-  
+
   .filename {
     min-width: 120px;
   }
