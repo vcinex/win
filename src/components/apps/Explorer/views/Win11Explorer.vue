@@ -69,6 +69,17 @@
       :view-mode="viewMode"
       @set-view-mode="setViewMode"
     />
+
+    <div v-if="isPickerMode" class="picker-footer">
+      <div class="file-name-input">
+        <label>文件名:</label>
+        <input v-model="selectedFileName" type="text" disabled />
+      </div>
+      <div class="picker-actions">
+        <button :disabled="!selectedFileName" @click="confirmPick">打开(O)</button>
+        <button @click="cancelPick">取消</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -85,7 +96,16 @@ import { useSystemManager } from '@/composables/useSystemManager'
 import { useContextMenu } from '@/composables/useContextMenu'
 import { useDialog } from '@/composables/useDialog'
 
-const props = defineProps<{ pid?: string; path?: string }>()
+const props = defineProps<{
+  pid?: string
+  path?: string
+  mode?: 'normal' | 'picker'
+  onPick?: (path: string) => void
+  onCancel?: () => void
+}>()
+
+const isPickerMode = computed(() => props.mode === 'picker')
+const selectedFileName = ref('')
 
 // 初始化服务与Store
 const explorerStore = createExplorerStore()
@@ -216,11 +236,14 @@ const handleGlobalClick = () => {
 
 // === 文件操作事件处理 ===
 const handleItemOpen = (item: any) => {
-  if (item.type === 'directory' || item.type === 'folder' || item.type === 'dir') {
+  if (item.type === 'directory') {
     pushPath(item.path)
+  } else if (isPickerMode.value) {
+    // 如果是选择器模式，选中即填入文件名
+    selectedFileName.value = item.name
   } else {
-    // 假设都是文本文件，如果后缀不同未来可扩展判断
-    sys.openApp('notepad', { path: item.path, currentFilePath: item.path })
+    // 普通模式直接打开应用
+    sys.openApp('notepad', { path: item.path })
   }
 }
 
@@ -345,6 +368,16 @@ const openBlankContextMenu = (e: MouseEvent) => {
     { divided: true, label: '新建文件夹', action: handleNewFolder },
     { label: '新建文本文档', action: handleNewFile }
   ])
+}
+
+const confirmPick = () => {
+  if (props.onPick && selectedFileName.value) {
+    props.onPick(`C:/Users/Public/Desktop/${selectedFileName.value}`)
+  }
+}
+
+const cancelPick = () => {
+  if (props.onCancel) props.onCancel()
 }
 </script>
 
