@@ -37,7 +37,7 @@ appManager.registerApp({
   icon: '🌐',
   component: () => import('../Welcome/index.vue'),
   defaultSize: { width: 560, height: 420 },
-  single: true
+  single: false
 });
 
 const registeredApps = computed(() => appManager.listApps());
@@ -54,7 +54,8 @@ function handleLaunchApp(appId: string) {
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);
-  width: 640px;
+  width: 100%; /* 修改：占满可用宽度 */
+  max-width: 640px; /* 新增：最大不超过 640px */
   height: 600px;
   background: rgba(243, 243, 243, 0.95);
   backdrop-filter: blur(40px);
@@ -64,7 +65,7 @@ function handleLaunchApp(appId: string) {
   display: flex;
   flex-direction: column;
   padding: 24px;
-  z-index: 10001; /* 确保层级极高 */
+  z-index: 10001;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -75,10 +76,15 @@ function handleLaunchApp(appId: string) {
   }
 }
 
+.search-bar {
+  width: 100%; /* 新增：约束父容器宽度 */
+}
+
 .search-bar input {
   width: 100%;
   height: 36px;
   padding: 0 16px;
+  box-sizing: border-box; /* 新增：强制应用边框盒模型 */
   border-radius: 18px;
   border: 1px solid #ccc;
   background: rgba(255, 255, 255, 0.7);

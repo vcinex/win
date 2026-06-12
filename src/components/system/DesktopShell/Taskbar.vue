@@ -32,12 +32,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import StartMenu from './StartMenu.vue';
 import { useAppManager } from '@/composables';
 import type { WindowState } from '@/types';
 
-let startMenuOpen: boolean = false;
+let startMenuOpen = ref<boolean>(false);
 
 const appManager = useAppManager();
 const openWindows = appManager.windows;
@@ -45,11 +45,11 @@ const openWindows = appManager.windows;
 const getAppIcon = (appId: string) => appManager.getApp(appId)?.icon || '📄';
 
 function toggleStartMenu() {
-  startMenuOpen = !startMenuOpen;
+  startMenuOpen.value = !startMenuOpen.value;
 }
 
 function handleTaskbarClick(win: WindowState) {
-  startMenuOpen = false;
+  startMenuOpen.value = false;
   if (appManager.activeWindowId.value === win.id && !win.minimized) {
     appManager.minimizeWindow(win.id);
   } else {
@@ -59,7 +59,7 @@ function handleTaskbarClick(win: WindowState) {
 
 // 点击空白处关闭开始菜单
 const closeMenuOnOutsideClick = () => {
-  if (startMenuOpen) startMenuOpen = false;
+  if (startMenuOpen.value) startMenuOpen.value = false;
 };
 
 onMounted(() => window.addEventListener('click', closeMenuOnOutsideClick));
