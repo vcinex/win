@@ -95,21 +95,32 @@ export function useWindowInteract(options: WindowInteractOptions) {
       if (dir.includes('right')) w = Math.max(options.minWidth, initial.w + dx);
       if (dir.includes('bottom')) h = Math.max(options.minHeight, initial.h + dy);
 
+      // ✅ 修复：左侧缩放边界锁定，平滑处理到达最小宽度的情况
       if (dir.includes('left')) {
-        const newW = Math.max(options.minWidth, initial.w - dx);
-        if (newW > options.minWidth) {
-          w = newW;
+        const targetW = initial.w - dx;
+        if (targetW >= options.minWidth) {
+          w = targetW;
           x = initial.x + dx;
-        }
-      }
-      if (dir.includes('top')) {
-        const newH = Math.max(options.minHeight, initial.h - dy);
-        if (newH > options.minHeight) {
-          h = newH;
-          y = initial.y + dy;
+        } else {
+          w = options.minWidth;
+          x = initial.x + initial.w - options.minWidth;
         }
       }
 
+      // ✅ 修复：顶部缩放边界锁定，平滑处理到达最小高度的情况
+      if (dir.includes('top')) {
+        const targetH = initial.h - dy;
+        if (targetH >= options.minHeight) {
+          h = targetH;
+          y = initial.y + dy;
+        } else {
+          h = options.minHeight;
+          y = initial.y + initial.h - options.minHeight;
+        }
+      }
+
+      localRect.value = { x, y, w, h };
+      // localRect instead of Rect typo corrected
       localRect.value = { x, y, w, h };
     });
   };
