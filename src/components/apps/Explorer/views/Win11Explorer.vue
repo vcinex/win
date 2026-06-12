@@ -239,12 +239,24 @@ const handleItemOpen = (item: any) => {
   if (item.type === 'directory') {
     pushPath(item.path)
   } else if (isPickerMode.value) {
-    // 如果是选择器模式，选中即填入文件名
     selectedFileName.value = item.name
   } else {
-    // 普通模式直接打开应用
-    sys.openApp('notepad', { path: item.path })
+    // 规范与健壮性：优先使用文件自带的 appId 关联，若无则根据后缀名推断，最后兜底使用 notepad
+    const appId = item.appId || getAppIdByExtension(item.name) || 'notepad'
+    sys.openApp(appId, { path: item.path })
   }
+}
+
+// 新增后缀名推断助手（便于后续扩展图片查看器、视频播放器等）
+const getAppIdByExtension = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase()
+  const map: Record<string, string> = {
+    txt: 'notepad',
+    md: 'notepad',
+    json: 'notepad'
+    // png: 'photos', // 留作未来扩展
+  }
+  return ext ? map[ext] : 'notepad'
 }
 
 const toggleNewMenu = () => {

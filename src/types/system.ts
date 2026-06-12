@@ -36,3 +36,14 @@ export interface ContextMenuItem {
   disabled?: boolean
   children?: ContextMenuItem[]
 }
+
+export interface FileSystemInterface {
+  readDir: (path: string) => Promise<any[]>
+  readFile: (path: string) => Promise<string>
+  writeFile: (path: string, content: string) => Promise<void>
+  mkdir: (path: string) => Promise<void>
+  rename: (oldPath: string, newPath: string) => Promise<void>
+  rm: (path: string) => Promise<void>
+  copy: (src: string, dest: string) => Promise<void>
+  move: (src: string, dest: string) => Promise<void>
+}

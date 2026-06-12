@@ -51,8 +51,8 @@ import { useNotification } from '@/composables/useNotification'
 const { notify } = useNotification()
 const isFilePickerOpen = ref(false)
 
-const props = defineProps<{ currentFilePath?: string }>()
-const { readFile, writeFile } = useFileSystem() as any // 获取系统的读写能力
+const props = defineProps<{ path?: string }>()
+const { readFile, writeFile } = useFileSystem() as any
 
 interface EditorTab {
   id: string
@@ -106,7 +106,7 @@ const initTab = async (path?: string) => {
 }
 
 watch(
-  () => props.currentFilePath,
+  () => props.path, // <--- 修改这里
   (newPath) => {
     if (newPath) initTab(newPath)
   },
@@ -135,6 +135,10 @@ const closeTab = (id: string) => {
     if (activeTabId.value === id) {
       activeTabId.value = tabs.value[Math.max(0, index - 1)]?.id || ''
     }
+  }
+  // 【新增防崩溃逻辑】如果标签全部被关闭，自动新建一个未命名文件
+  if (tabs.value.length === 0) {
+    initTab('')
   }
 }
 
