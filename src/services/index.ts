@@ -1,2 +1,2 @@
-export * from './appRegistry'
-export * from './fs'
+export * from './appRegistry';
+export * from './vfs';

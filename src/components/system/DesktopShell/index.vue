@@ -1,12 +1,12 @@
 <template>
-  <div class="desktop-shell">
+  <main class="desktop-shell" @contextmenu.prevent="showDesktopMenu">
     <div class="desktop-background"></div>
 
     <div class="window-layer">
       <Window
-        v-for="windowState in visibleWindows"
-        :key="windowState.id"
-        :window-state="windowState"
+        v-for="win in visibleWindows"
+        :key="win.id"
+        :window-state="win"
         @focus="focusWindow"
         @close="closeWindow"
         @minimize="minimizeWindow"
@@ -14,103 +14,85 @@
       />
     </div>
 
-    <Taskbar />
-  </div>
+    <Taskbar class="taskbar-layer" />
+  </main>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
-import { useWindowStore } from '@/store/windows'
-import { useWindowManager } from '@/composables/useWindowManager'
-import Window from '../Window/index.vue'
-import Taskbar from '../Taskbar/index.vue'
-import type { WindowState } from '@/types'
+import { onMounted, onUnmounted } from 'vue';
+import { useAppManager } from '@/composables';
+import type { WindowState } from '@/types';
+import Window from './Window.vue';
+import Taskbar from './Taskbar.vue';
 
-const windowStore = useWindowStore()
-const windowManager = useWindowManager() // ✅ 引入窗口管理器
-const visibleWindows = computed(() => windowStore.windows)
+const appManager = useAppManager();
 
-function focusWindow(id: string) {
-  windowStore.focusWindow(id)
-}
+const visibleWindows = appManager.windows;
 
-function closeWindow(id: string) {
-  windowStore.closeWindow(id)
-}
+// 代理 Store 和 Manager 的方法，解耦模板
+const focusWindow = (id: string) => appManager.focusWindow(id);
+const closeWindow = (id: string) => appManager.closeWindow(id);
+const minimizeWindow = (id: string) => appManager.minimizeWindow(id);
+const updateWindow = (id: string, updates: Partial<WindowState>) =>
+  appManager.updateWindow(id, updates);
 
-function minimizeWindow(id: string) {
-  windowStore.minimizeWindow(id)
-}
+const showDesktopMenu = (e: MouseEvent) => {
+  // TODO: 后续可在此处挂载并调用 ContextMenu 弹窗逻辑
+  console.log('Desktop right click triggered at', e.clientX, e.clientY);
+};
 
-function updateWindow(id: string, updates: Partial<WindowState>) {
-  windowStore.updateWindow(id, updates)
-}
+// 监听跨组件系统意图（解耦机制：其它应用发送意图唤起别的应用）
+const handleSystemIntent = (event: Event) => {
+  const customEvent = event as CustomEvent;
+  const { action, appId, payload } = customEvent.detail;
 
-// ✅ 监听从文件管理器广播出的双击打开文件事件
-const handleGlobalFileOpen = (event: Event) => {
-  const customEvent = event as CustomEvent
-  const { appId, filePath } = customEvent.detail
-
-  if (appId) {
-    // 携带 props 参数拉起目标窗口
-    windowManager.openApp(appId, { props: { currentFilePath: filePath } })
+  if (action === 'OPEN_FILE' && appId) {
+    appManager.launchApp(appId, { props: payload });
   }
-}
+};
 
 onMounted(() => {
-  window.addEventListener('vfs-open-file', handleGlobalFileOpen)
-})
+  window.addEventListener('os-intent', handleSystemIntent);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('vfs-open-file', handleGlobalFileOpen)
-})
+  window.removeEventListener('os-intent', handleSystemIntent);
+});
 </script>
 
 <style scoped>
-/* 使用 fixed + inset 确保占满视口且不触发外部滚动 */
 .desktop-shell {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: linear-gradient(135deg, #1b2340 0%, #0e1528 100%);
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
   user-select: none;
+  background-color: #000; /* Fallback fallback */
 }
 
-/* 背景层：提供渐变并作为 fallback 色 */
 .desktop-background {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-color: #0e1528;
-  /* fallback */
-  background-image:
-    radial-gradient(circle at 10% 10%, rgba(84, 94, 255, 0.18), transparent 30%),
-    linear-gradient(135deg, #1b2340 0%, #0e1528 100%);
-  pointer-events: none;
+  /* 现代默认壁纸风格替代，未来可改为图片 */
+  background: linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%);
+  background-size: cover;
+  background-position: center;
 }
 
-/* 窗口层放在背景之上 */
 .window-layer {
   position: absolute;
   inset: 0;
-  padding: 12px;
   z-index: 10;
+  /* 极其关键：让事件穿透到下层桌面，否则无法点右键和拖拽图标 */
   pointer-events: none;
-  /* 单个窗口接收事件 */
 }
 
 .window-layer > * {
+  /* 窗口本身恢复事件截获 */
   pointer-events: auto;
 }
 
-/* 确保任务栏始终在最上层 */
-:deep(.taskbar) {
-  z-index: 30;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.taskbar-layer {
+  z-index: 9999;
 }
 </style>

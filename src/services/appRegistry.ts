@@ -1,44 +1,35 @@
-import type { AppDefinition } from '@/types/system'
-import { Welcome, TextEditor, Explorer } from '@/components/apps'
+import type { AppDefinition } from '@/types';
 
-const registry = new Map<string, AppDefinition>()
+const registry = new Map<string, AppDefinition>();
 
 export function registerApp(app: AppDefinition) {
-  if (!app.id) return
-  registry.set(app.id, app)
+  if (!app.id) return;
+  registry.set(app.id, app);
 }
 
-export function getApp(id: string) {
-  return registry.get(id)
+export function getApp(id: string): AppDefinition | undefined {
+  return registry.get(id);
 }
 
-export function listApps() {
-  return Array.from(registry.values())
+export function listApps(): AppDefinition[] {
+  return Array.from(registry.values());
 }
 
-registerApp({
-  id: 'hello-world',
-  title: 'Welcome',
-  icon: '🌐',
-  component: Welcome,
-  defaultSize: { width: 560, height: 420 },
-  single: true
-})
+// ✅ 注册时使用动态 import，打包时会自动代码分割(Code Splitting)
+// registerApp({
+//   id: 'text-editor',
+//   name: '文本编辑器',
+//   icon: '📝',
+//   component: () => import('@/components/apps/TextEditor/index.vue'),
+//   defaultSize: { width: 900, height: 600 },
+//   single: false
+// });
 
-registerApp({
-  id: 'text-editor',
-  title: '文本编辑器',
-  icon: '📝',
-  component: TextEditor,
-  defaultSize: { width: 900, height: 600 },
-  single: false
-})
-
-registerApp({
-  id: 'file-explorer',
-  title: '资源管理器',
-  icon: '📁',
-  component: Explorer,
-  defaultSize: { width: 850, height: 550 },
-  single: false
-})
+// registerApp({
+//   id: 'file-explorer',
+//   name: '资源管理器',
+//   icon: '📁',
+//   component: () => import('@/components/apps/Explorer/views/Win11Explorer.vue'),
+//   defaultSize: { width: 850, height: 550 },
+//   single: false
+// });

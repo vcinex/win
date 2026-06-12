@@ -8,18 +8,22 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "useDefineForClassFields": true,
-    "strict": true, // 开启所有严格类型检查
-    "noUnusedLocals": true, // 检查未使用的局部变量
-    "noUnusedParameters": true, // 检查未使用的函数参数
-    "noFallthroughCasesInSwitch": true, // 防止 switch 语句贯穿
-    "noImplicitReturns": true, // 强制函数所有路径都有返回值
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"] // 配置路径别名，提升自动补全体验
+      "@/*": ["src/*"]
     },
-    "types": ["vite/client", "wicg-file-system-access"],
+    // 增加 "node" 识别 node:url 等模块
+    "types": ["vite/client", "wicg-file-system-access", "node"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*"]
+  // 增加确切的扩展名包含范围
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  // 排除 node_modules 提升性能
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,3 +1,3 @@
-export * from './useFileSystem'
-export * from './useProcesses'
-export * from './useWindowManager'
+export * from './useAppManager';
+export * from './useFileSystem';
+export * from './useWindowInteract';

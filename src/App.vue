@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { DesktopShell } from '@/components'
+import { DesktopShell } from '@/components';
 </script>
 
 <style>
