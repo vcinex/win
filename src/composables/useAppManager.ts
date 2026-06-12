@@ -6,6 +6,8 @@ import { WindowState } from '@/types';
 export function useAppManager() {
   const windowStore = useWindowStore();
 
+  let count = 0;
+
   /**
    * 核心 API：启动或聚焦应用
    */
@@ -30,7 +32,7 @@ export function useAppManager() {
     }
 
     // 2. 生成运行实例 ID
-    const pid = `pid_${appId}_${Date.now()}`;
+    const pid = `pid_${appId}_${count++}_${Date.now()}`;
     const windowId = `win_${pid}`; // 目前 1 PID 对应 1 Window，留出扩展空间
 
     // 3. 构建异步组件 (结合 Suspense 可实现 Loading)

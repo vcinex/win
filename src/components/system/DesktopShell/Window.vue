@@ -19,7 +19,7 @@
     >
       <div class="titlebar-info">
         <span class="title-icon">{{ appIcon }}</span>
-        <span class="title-text">{{ windowState.title }}</span>
+        <span class="title-text">{{ windowState.title }}#{{ windowState.id }}</span>
       </div>
       <div class="window-controls no-drag">
         <button class="control-btn minimize-btn" title="最小化" @click.stop="toggleMinimize">
@@ -123,16 +123,28 @@ const { isDragging, isResizing, localRect, startDrag, startResize } = useWindowI
 });
 
 // 同步外部状态 (仅当非交互状态时)
+// 优化后的代码
 watch(
-  () => props.windowState,
-  (newVal) => {
+  () => props.windowState.position,
+  (newPos) => {
     if (!isDragging.value && !isResizing.value) {
-      localRect.value = {
-        x: newVal.position.x,
-        y: newVal.position.y,
-        w: newVal.size.width,
-        h: newVal.size.height
-      };
+      if (newPos.x !== localRect.value.x || newPos.y !== localRect.value.y) {
+        localRect.value.x = newPos.x;
+        localRect.value.y = newPos.y;
+      }
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  () => props.windowState.size,
+  (newSize) => {
+    if (!isDragging.value && !isResizing.value) {
+      if (newSize.width !== localRect.value.w || newSize.height !== localRect.value.h) {
+        localRect.value.w = newSize.width;
+        localRect.value.h = newSize.height;
+      }
     }
   },
   { deep: true }
