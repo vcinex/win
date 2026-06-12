@@ -36,8 +36,9 @@ export function useWindowInteract(options: WindowInteractOptions) {
       isDragging.value = false;
       isResizing.value = false;
       document.body.style.cursor = '';
+      document.body.style.userSelect = '';
 
-      // ✅ 交互结束时，才将最终坐标状态同步回 Store
+      // 交互结束时，才将最终坐标状态同步回 Store
       options.onUpdate({
         position: { x: localRect.value.x, y: localRect.value.y },
         size: { width: localRect.value.w, height: localRect.value.h }
@@ -54,27 +55,30 @@ export function useWindowInteract(options: WindowInteractOptions) {
   };
 
   const startDrag = (e: MouseEvent) => {
-    // 防止点击标题栏按钮时触发拖拽
+    // 防止点击标题栏按钮时触发拖拽，且最大化时不应拖拽
     if ((e.target as HTMLElement).closest('.no-drag') || options.windowState.maximized) return;
     options.onFocus();
     isDragging.value = true;
+    document.body.style.userSelect = 'none';
 
     const startX = e.clientX - localRect.value.x;
     const startY = e.clientY - localRect.value.y;
 
     bindEvents((moveEvent) => {
       const newX = moveEvent.clientX - startX;
-      let newY = moveEvent.clientY - startY;
+      const newY = moveEvent.clientY - startY;
 
-      // ✅ 边界保护：防止标题栏被彻底拖出顶部视口导致丢失句柄
-      if (newY < 0) newY = 0;
+      // ✅ 修复：补充 X 轴边界保护，防止窗口被彻底拖出屏幕左右侧
+      const minX = -localRect.value.w + 40;
+      const maxX = window.innerWidth - 40;
+      const clampedX = Math.max(minX, Math.min(newX, maxX));
 
-      // ✅ 边界保护：防止窗口完全掉出屏幕底部（保留 30px 可见区域）
-      const maxY = window.innerHeight - options.taskbarHeight - 30;
-      if (newY > maxY) newY = maxY;
+      // ✅ 修复：Y 轴边界保护
+      const maxY = window.innerHeight - options.taskbarHeight - 40;
+      const clampedY = Math.max(0, Math.min(newY, maxY));
 
-      localRect.value.x = newX;
-      localRect.value.y = newY;
+      localRect.value.x = clampedX;
+      localRect.value.y = clampedY;
     });
   };
 
@@ -82,6 +86,7 @@ export function useWindowInteract(options: WindowInteractOptions) {
     options.onFocus();
     isResizing.value = true;
     document.body.style.cursor = getComputedStyle(e.target as HTMLElement).cursor;
+    document.body.style.userSelect = 'none';
 
     const start = { x: e.clientX, y: e.clientY };
     const initial = { ...localRect.value };
@@ -95,7 +100,7 @@ export function useWindowInteract(options: WindowInteractOptions) {
       if (dir.includes('right')) w = Math.max(options.minWidth, initial.w + dx);
       if (dir.includes('bottom')) h = Math.max(options.minHeight, initial.h + dy);
 
-      // ✅ 修复：左侧缩放边界锁定，平滑处理到达最小宽度的情况
+      // 左侧缩放边界锁定，平滑处理到达最小宽度的情况
       if (dir.includes('left')) {
         const targetW = initial.w - dx;
         if (targetW >= options.minWidth) {
@@ -107,7 +112,7 @@ export function useWindowInteract(options: WindowInteractOptions) {
         }
       }
 
-      // ✅ 修复：顶部缩放边界锁定，平滑处理到达最小高度的情况
+      // 顶部缩放边界锁定，平滑处理到达最小高度的情况
       if (dir.includes('top')) {
         const targetH = initial.h - dy;
         if (targetH >= options.minHeight) {
@@ -119,8 +124,6 @@ export function useWindowInteract(options: WindowInteractOptions) {
         }
       }
 
-      localRect.value = { x, y, w, h };
-      // localRect instead of Rect typo corrected
       localRect.value = { x, y, w, h };
     });
   };

@@ -71,7 +71,13 @@ export function useAppManager() {
     windowStore.focusWindow(windowId);
   }
   function minimizeWindow(windowId: string) {
-    windowStore.focusWindow(windowId);
+    windowStore.minimizeWindow(windowId);
+  }
+  function maximizeWindow(windowId: string) {
+    windowStore.maximizeWindow(windowId);
+  }
+  function toggleMaximizeWindow(windowId: string) {
+    windowStore.toggleMaximizeWindow(windowId);
   }
   function updateWindow(windowId: string, updates: Partial<WindowState>) {
     windowStore.focusWindow(windowId);
@@ -82,6 +88,8 @@ export function useAppManager() {
     closeWindow,
     focusWindow,
     minimizeWindow,
+    maximizeWindow,
+    toggleMaximizeWindow,
     updateWindow,
     activeWindowId: computed(() => {
       return windowStore.activeWindowId;

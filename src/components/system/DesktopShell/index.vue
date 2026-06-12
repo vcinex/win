@@ -10,6 +10,7 @@
         @focus="focusWindow"
         @close="closeWindow"
         @minimize="minimizeWindow"
+        @toggle-maximize="toggleMaximizeWindow"
         @update="updateWindow"
       />
     </div>
@@ -33,6 +34,7 @@ const visibleWindows = appManager.windows;
 const focusWindow = (id: string) => appManager.focusWindow(id);
 const closeWindow = (id: string) => appManager.closeWindow(id);
 const minimizeWindow = (id: string) => appManager.minimizeWindow(id);
+const toggleMaximizeWindow = (id: string) => appManager.toggleMaximizeWindow(id);
 const updateWindow = (id: string, updates: Partial<WindowState>) =>
   appManager.updateWindow(id, updates);
 

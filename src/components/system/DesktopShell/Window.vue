@@ -22,7 +22,7 @@
         <span class="title-text">{{ windowState.title }}#{{ windowState.id }}</span>
       </div>
       <div class="window-controls no-drag">
-        <button class="control-btn minimize-btn" title="最小化" @click.stop="toggleMinimize">
+        <button class="control-btn minimize-btn" title="最小化" @click.stop="minimize">
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path d="M1 5h8v1H1z" fill="currentColor" />
           </svg>
@@ -97,6 +97,7 @@ const emit = defineEmits<{
   (event: 'focus', id: string): void;
   (event: 'close', id: string): void;
   (event: 'minimize', id: string): void;
+  (event: 'toggleMaximize', id: string): void;
   (event: 'update', id: string, updates: Partial<WindowState>): void;
 }>();
 
@@ -189,9 +190,12 @@ const windowStyle = computed(() => {
 // 方法派发
 const onFocus = () => emit('focus', props.windowState.id);
 const closeWindow = () => emit('close', props.windowState.id);
-const toggleMinimize = () => emit('minimize', props.windowState.id);
-const toggleMaximize = () =>
-  emit('update', props.windowState.id, { maximized: !props.windowState.maximized });
+const minimize = () => {
+  emit('minimize', props.windowState.id);
+};
+const toggleMaximize = () => {
+  emit('toggleMaximize', props.windowState.id);
+};
 </script>
 
 <style scoped>

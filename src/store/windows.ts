@@ -83,6 +83,48 @@ export const useWindowStore = defineStore('windows', {
     updateWindow(id: string, updates: Partial<WindowState>) {
       const win = this.windows.find((item) => item.id === id);
       if (win) Object.assign(win, updates);
+    },
+
+    minimizeWindow(id: string) {
+      const win = this.windows.find((item) => item.id === id);
+      if (win) {
+        win.minimized = true;
+        win.maximized = false;
+        // 最小化后，从 histories 栈中移除当前窗口，并将会话转移到前一个最高层级的未最小化窗口
+        const historyIndex = this.histories.findIndex((hId) => hId === id);
+        if (historyIndex !== -1) {
+          this.histories.splice(historyIndex, 1);
+        }
+
+        // 重新寻找并激活上一个窗口
+        if (this.activeWindowId === id) {
+          const lastValidId = this.histories.reverse().find((hId) => {
+            const w = this.findWindow(hId);
+            return w && !w.minimized;
+          });
+          this.activeWindowId = lastValidId || '';
+        }
+      }
+    },
+
+    toggleMaximizeWindow(id: string) {
+      const win = this.windows.find((item) => item.id === id);
+      if (win) {
+        if (win.maximized) {
+          win.maximized = false;
+        } else {
+          win.maximized = true;
+        }
+        this.focusWindow(id);
+      }
+    },
+
+    maximizeWindow(id: string) {
+      const win = this.windows.find((item) => item.id === id);
+      if (win) {
+        win.maximized = true;
+        this.focusWindow(id);
+      }
     }
   }
 });
