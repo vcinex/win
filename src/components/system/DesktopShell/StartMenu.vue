@@ -46,7 +46,7 @@ const registeredApps = computed(() => listApps());
 function handleLaunchApp(appId: string) {
   emit('close');
   // ✅ 发送系统意图，彻底解耦
-  osBus.emit('intent:launch_app', { appId });
+  osBus.emit('intent:launch_app', { appId: `${appId}` });
 }
 </script>
 

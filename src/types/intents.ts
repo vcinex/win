@@ -13,6 +13,11 @@ export type WindowIntents = {
 export type SystemBroadcastIntents = {
   'system:desktop_click': void;
   'system:theme_change': { theme: 'dark' | 'light' };
+  'system:error': {
+    source: string; // 错误来源，如 'IPC_DAEMON', 'VFS'
+    message: string; // 展示给用户的直观错误信息
+    code?: string | number; // 内部错误码，方便调试
+  };
 };
 
 // 组合所有的 Intents，方便后续扩展

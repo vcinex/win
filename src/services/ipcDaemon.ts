@@ -24,6 +24,11 @@ export function bootIpcDaemon() {
 
     if (!appDef) {
       console.error(`[OS Kernel] Application "${appId}" is not registered.`);
+      osBus.emit('system:error', {
+        source: 'IPC_DAEMON',
+        message: `找不到应用 "${appId}" 的注册信息。`,
+        code: 404
+      });
       return;
     }
 
@@ -47,7 +52,23 @@ export function bootIpcDaemon() {
     const AsyncComp = defineAsyncComponent({
       loader: appDef.component,
       delay: 200,
-      timeout: 10000
+      timeout: 10000,
+      onError(error, retry, fail, attempts) {
+        console.error(`[OS Kernel] Failed to load application component: ${appId}`, error);
+
+        // 1. 向系统总线抛出错误广播
+        osBus.emit('system:error', {
+          source: 'IPC_DAEMON',
+          message: `无法启动 "${appDef.name}"。请检查网络连接或应用文件是否损坏。`,
+          code: 'APP_LOAD_FAILED'
+        });
+
+        // 2. 告诉 Vue 停止重试并宣告失败
+        fail();
+
+        // 3. (可选) 如果窗口已经在 Store 里占位了，需要把它清理掉
+        windowStore.removeWindow(windowId);
+      }
     });
 
     // 4. 下发指令给 Store

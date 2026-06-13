@@ -16,6 +16,7 @@
     </div>
 
     <Taskbar class="taskbar-layer" />
+    <NotificationCenter />
   </main>
 </template>
 
@@ -28,9 +29,11 @@ import { osBus } from '@/services';
 import { useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
 
+import NotificationCenter from './NotificationCenter.vue';
 import Taskbar from './Taskbar.vue';
 import Window from './Window.vue';
 
+// 引入通知组件
 const windowStore = useWindowStore();
 const { windows } = storeToRefs(windowStore);
 
