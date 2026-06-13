@@ -1,6 +1,6 @@
 <template>
   <Transition name="start-menu-fade">
-    <div v-if="isOpen" class="start-menu-panel" @click.stop>
+    <div v-show="isOpen" class="start-menu-panel" @click.stop>
       <div class="pinned-section">
         <h4>已固定</h4>
         <div class="app-grid">

@@ -5,16 +5,13 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 
-// 新增导入
-import { DesktopShell } from '@/components';
-
-import { bootIpcDaemon } from './services';
-
-// 修改引用路径
+import DesktopShell from '@/components/system/DesktopShell/index.vue';
+import { bootApps, bootIpcDaemon } from '@/services';
 
 // ✅ 显式初始化：在组件挂载后“开机”，此时 DOM 和 Pinia 都已完全准备好
 onMounted(() => {
   bootIpcDaemon();
+  bootApps();
 });
 </script>
 
