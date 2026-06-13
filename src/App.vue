@@ -4,6 +4,9 @@
 
 <script setup lang="ts">
 import { DesktopShell } from '@/components';
+import { initIPCDaemon } from './services';
+
+initIPCDaemon(); // 系统启动时开启 IPC 监听
 </script>
 
 <style>

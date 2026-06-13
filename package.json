@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{js,ts,vue,css,scss,html,json}\""
   },
   "dependencies": {
+    "mitt": "^3.0.1",
     "pinia": "^2.3.1",
     "vue": "^3.5.13"
   },
