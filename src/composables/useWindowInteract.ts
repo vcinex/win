@@ -1,4 +1,5 @@
-import { ref, onUnmounted } from 'vue';
+import { onUnmounted, ref } from 'vue';
+
 import type { WindowState } from '@/types';
 
 interface WindowInteractOptions {

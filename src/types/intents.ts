@@ -1,15 +1,19 @@
-// 1. 定义系统中所有的 Intent (跨进程通信事件) 及其严格的 Payload 参数类型
-export type SystemIntents = {
-  // --- 1. IPC 指令 (应用请求系统做事) ---
+// 窗口与应用生命周期意图
+export type WindowIntents = {
   'intent:launch_app': { appId: string; props?: Record<string, any> };
   'intent:close_window': { windowId: string };
   'intent:minimize_window': { windowId: string };
   'intent:maximize_window': { windowId: string };
-
-  // --- 2. 系统广播 (系统通知所有应用/组件) ---
-  'system:desktop_click': void; // 桌面被点击，各组件应收起自己的下拉/弹出菜单
-  'system:theme_changed': { theme: 'light' | 'dark' };
-
-  // --- 3. VFS 文件系统事件 (未来的扩展) ---
-  'vfs:file_changed': { path: string; type: 'create' | 'delete' | 'update' };
+  'intent:toggle_maximize_window': { windowId: string };
+  'intent:focus_window': { windowId: string };
+  'intent:update_window': { windowId: string; updates: Record<string, any> };
 };
+
+// 系统级广播意图
+export type SystemBroadcastIntents = {
+  'system:desktop_click': void;
+  'system:theme_change': { theme: 'dark' | 'light' };
+};
+
+// 组合所有的 Intents，方便后续扩展
+export type SystemIntents = WindowIntents & SystemBroadcastIntents;

@@ -1,5 +1,5 @@
 // src/services/vfs.ts
-import type { FileMetadata, FSItem, TrashItem } from '@/types';
+import type { FSItem, FileMetadata, TrashItem } from '@/types';
 
 const IDB_NAME = 'vfs_opfs_db';
 const IDB_STORE = 'metadata';

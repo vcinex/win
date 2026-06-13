@@ -3,19 +3,29 @@
 </template>
 
 <script setup lang="ts">
-import { DesktopShell } from '@/components';
-import { initIPCDaemon } from './services';
+import { onMounted } from 'vue';
 
-initIPCDaemon(); // 系统启动时开启 IPC 监听
+// 新增导入
+import { DesktopShell } from '@/components';
+
+import { bootIpcDaemon } from './services/ipcDaemon';
+
+// 修改引用路径
+
+// ✅ 显式初始化：在组件挂载后“开机”，此时 DOM 和 Pinia 都已完全准备好
+onMounted(() => {
+  bootIpcDaemon();
+});
 </script>
 
 <style>
+/* CSS 保持不变 */
 body,
 html {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* 防止桌面出现意外的浏览器滚动条 */
+  overflow: hidden;
 }
 </style>

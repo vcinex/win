@@ -18,7 +18,7 @@
       @contextmenu.prevent="onFocus"
     >
       <div class="titlebar-info">
-        <span class="title-icon">{{ appIcon }}</span>
+        <span class="title-icon">{{ windowState.icon }}</span>
         <span class="title-text">{{ windowState.title }}#{{ windowState.id }}</span>
       </div>
       <div class="window-controls no-drag">
@@ -89,7 +89,11 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import { useWindowInteract, useAppManager } from '@/composables';
+
+import { storeToRefs } from 'pinia';
+
+import { useWindowInteract } from '@/composables';
+import { useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
 
 const props = defineProps<{ windowState: WindowState }>();
@@ -108,10 +112,10 @@ const SYSTEM_UI = {
   TASKBAR_HEIGHT: 48
 };
 
-const appManager = useAppManager();
+const windowStore = useWindowStore();
+const { activeWindowId } = storeToRefs(windowStore);
 
-const isActive = computed(() => props.windowState.id === appManager.activeWindowId.value);
-const appIcon = computed(() => appManager.getApp(props.windowState.appId)?.icon || '📄');
+const isActive = computed(() => props.windowState.id === activeWindowId.value);
 
 // 注入交互逻辑复用器
 const { isDragging, isResizing, localRect, startDrag, startResize } = useWindowInteract({

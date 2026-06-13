@@ -28,6 +28,7 @@ export interface WindowState {
   pid: string; // 进程 ID (当前窗口属于哪个进程运行实例)
   appId: string; // 关联的应用 ID
   title: string;
+  icon: string;
   position: WindowPosition;
   size: WindowSize;
   minimized: boolean;

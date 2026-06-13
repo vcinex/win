@@ -18,7 +18,7 @@
         v-for="win in openWindows"
         :key="win.id"
         class="taskbar-icon app-btn"
-        :class="{ active: win.id === appManager.activeWindowId.value && !win.minimized }"
+        :class="{ active: win.id === activeWindowId && !win.minimized }"
         :title="win.title"
         @click="handleTaskbarClick(win)"
       >
@@ -26,23 +26,30 @@
         <div :class="['indicator', { min: win.minimized }]"></div>
       </button>
     </div>
-
     <StartMenu :is-open="startMenuOpen" @close="startMenuOpen = false" />
   </footer>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import StartMenu from './StartMenu.vue';
-import { useAppManager } from '@/composables';
+import { onMounted, onUnmounted, ref } from 'vue';
+
+import { storeToRefs } from 'pinia';
+
+import { getApp } from '@/services/appRegistry';
+import { osBus } from '@/services/eventBus';
+import { useWindowStore } from '@/store/windows';
 import type { WindowState } from '@/types';
+
+// ✅ 用于结构响应式数据
+import StartMenu from './StartMenu.vue';
 
 let startMenuOpen = ref<boolean>(false);
 
-const appManager = useAppManager();
-const openWindows = appManager.windows;
+// 【读操作】：直接从 Pinia 取状态并建立响应式绑定
+const windowStore = useWindowStore();
+const { windows: openWindows, activeWindowId } = storeToRefs(windowStore);
 
-const getAppIcon = (appId: string) => appManager.getApp(appId)?.icon || '📄';
+const getAppIcon = (appId: string) => getApp(appId)?.icon || '📄';
 
 function toggleStartMenu() {
   startMenuOpen.value = !startMenuOpen.value;
@@ -50,14 +57,15 @@ function toggleStartMenu() {
 
 function handleTaskbarClick(win: WindowState) {
   startMenuOpen.value = false;
-  if (appManager.activeWindowId.value === win.id && !win.minimized) {
-    appManager.minimizeWindow(win.id);
+  // 【写操作】：只发送意图，怎么最小化、怎么聚焦是 Daemon 的事
+  if (activeWindowId.value === win.id && !win.minimized) {
+    osBus.emit('intent:minimize_window', { windowId: win.id });
   } else {
-    appManager.focusWindow(win.id);
+    osBus.emit('intent:focus_window', { windowId: win.id });
   }
 }
 
-// 点击空白处关闭开始菜单
+// 原有的点击空白处关闭逻辑保持不动
 const closeMenuOnOutsideClick = () => {
   if (startMenuOpen.value) startMenuOpen.value = false;
 };

@@ -1,9 +1,6 @@
 <template>
   <Transition name="start-menu-fade">
     <div v-if="isOpen" class="start-menu-panel" @click.stop>
-      <div class="search-bar">
-        <input type="text" placeholder="搜索应用、文件和设置" />
-      </div>
       <div class="pinned-section">
         <h4>已固定</h4>
         <div class="app-grid">
@@ -23,15 +20,19 @@
 </template>
 
 <script setup lang="ts">
-import { useAppManager } from '@/composables';
 import { computed } from 'vue';
+
+import { listApps, registerApp } from '@/services/appRegistry';
+// ✅ 直接引入注册表服务
+import { osBus } from '@/services/eventBus';
+
+// ✅ 引入事件总线
 
 defineProps<{ isOpen: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
 
-const appManager = useAppManager();
-
-appManager.registerApp({
+// 保留原有的应用注册逻辑
+registerApp({
   id: 'hello-world',
   name: 'Welcome',
   icon: '🌐',
@@ -40,11 +41,12 @@ appManager.registerApp({
   single: false
 });
 
-const registeredApps = computed(() => appManager.listApps());
+const registeredApps = computed(() => listApps());
 
 function handleLaunchApp(appId: string) {
-  emit('close'); // 通知父组件或状态库关闭菜单
-  appManager.launchApp(appId);
+  emit('close');
+  // ✅ 发送系统意图，彻底解耦
+  osBus.emit('intent:launch_app', { appId });
 }
 </script>
 

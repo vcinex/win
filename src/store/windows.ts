@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import type { WindowState } from '@/types/system';
+
+import type { WindowState } from '@/types';
 
 const BASE_Z_INDEX = 100;
 

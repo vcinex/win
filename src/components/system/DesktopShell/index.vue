@@ -4,7 +4,7 @@
 
     <div class="window-layer">
       <Window
-        v-for="win in visibleWindows"
+        v-for="win in windows"
         :key="win.id"
         :window-state="win"
         @focus="focusWindow"
@@ -21,22 +21,27 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue';
-import { useAppManager } from '@/composables';
+
+import { storeToRefs } from 'pinia';
+
+import { osBus } from '@/services';
+import { useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
-import Window from './Window.vue';
+
 import Taskbar from './Taskbar.vue';
+import Window from './Window.vue';
 
-const appManager = useAppManager();
-
-const visibleWindows = appManager.windows;
+const windowStore = useWindowStore();
+const { windows } = storeToRefs(windowStore);
 
 // 代理 Store 和 Manager 的方法，解耦模板
-const focusWindow = (id: string) => appManager.focusWindow(id);
-const closeWindow = (id: string) => appManager.closeWindow(id);
-const minimizeWindow = (id: string) => appManager.minimizeWindow(id);
-const toggleMaximizeWindow = (id: string) => appManager.toggleMaximizeWindow(id);
+const focusWindow = (id: string) => osBus.emit('intent:focus_window', { windowId: id });
+const closeWindow = (id: string) => osBus.emit('intent:close_window', { windowId: id });
+const minimizeWindow = (id: string) => osBus.emit('intent:minimize_window', { windowId: id });
+const toggleMaximizeWindow = (id: string) =>
+  osBus.emit('intent:toggle_maximize_window', { windowId: id });
 const updateWindow = (id: string, updates: Partial<WindowState>) =>
-  appManager.updateWindow(id, updates);
+  osBus.emit('intent:update_window', { windowId: id, updates });
 
 const showDesktopMenu = (e: MouseEvent) => {
   // TODO: 后续可在此处挂载并调用 ContextMenu 弹窗逻辑
@@ -49,7 +54,7 @@ const handleSystemIntent = (event: Event) => {
   const { action, appId, payload } = customEvent.detail;
 
   if (action === 'OPEN_FILE' && appId) {
-    appManager.launchApp(appId, { props: payload });
+    osBus.emit('intent:launch_app', { appId, props: payload });
   }
 };
 
