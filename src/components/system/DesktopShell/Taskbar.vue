@@ -1,10 +1,11 @@
 <template>
-  <footer class="win11-taskbar" @click.stop>
+  <footer class="win11-taskbar">
     <div class="taskbar-center">
       <button
+        ref="startBtnRef"
         class="taskbar-icon start-btn"
         :class="{ 'is-open': isSartMenuOpen }"
-        @click.stop="toggleStartMenu"
+        @click="toggleStartMenu"
       >
         <svg viewBox="0 0 88 88" width="24" height="24">
           <path
@@ -26,28 +27,31 @@
         <div :class="['indicator', { min: windowState.minimized }]"></div>
       </button>
     </div>
-    <StartMenu :is-open="isSartMenuOpen" @close="isSartMenuOpen = false" />
+
+    <StartMenu ref="startMenuRef" :is-open="isSartMenuOpen" @close="isSartMenuOpen = false" />
   </footer>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 
+import { onClickOutside } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
 
-import { useSystemEvent } from '@/composables/useEventBus.js';
 import { osBus } from '@/services';
 import { useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
 
-// ✅ 用于结构响应式数据
 import StartMenu from './StartMenu.vue';
 
 let isSartMenuOpen = ref<boolean>(false);
 
-// 【读操作】：直接从 Pinia 取状态并建立响应式绑定
 const windowStore = useWindowStore();
 const { windowStates, activeWindowId } = storeToRefs(windowStore);
+
+// DOM Refs 用于 onClickOutside 绑定
+const startBtnRef = ref<HTMLElement | null>(null);
+const startMenuRef = ref<InstanceType<typeof StartMenu> | null>(null);
 
 function toggleStartMenu() {
   isSartMenuOpen.value = !isSartMenuOpen.value;
@@ -55,7 +59,6 @@ function toggleStartMenu() {
 
 function handleTaskbarClick(windowState: WindowState) {
   isSartMenuOpen.value = false;
-  // 【写操作】：只发送意图，怎么最小化、怎么聚焦是 Daemon 的事
   if (activeWindowId.value === windowState.id && !windowState.minimized) {
     osBus.emit('intent:minimize_window', { windowId: windowState.id });
   } else {
@@ -63,12 +66,16 @@ function handleTaskbarClick(windowState: WindowState) {
   }
 }
 
-// 原有的点击空白处关闭逻辑保持不动
-const closeMenuOnOutsideClick = () => {
-  if (isSartMenuOpen.value) isSartMenuOpen.value = false;
-};
-
-onMounted(() => useSystemEvent('system:desktop_click', closeMenuOnOutsideClick));
+// ✅ 核心优化：使用 onClickOutside 替代原本脆弱的全局事件监听
+onClickOutside(
+  () => (startMenuRef.value as any)?.$el,
+  () => {
+    if (isSartMenuOpen.value) {
+      isSartMenuOpen.value = false;
+    }
+  },
+  { ignore: [startBtnRef] } // 忽略对开始按钮本身的点击，交由 toggleStartMenu 处理
+);
 </script>
 
 <style scoped>

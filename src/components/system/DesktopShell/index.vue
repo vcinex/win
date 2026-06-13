@@ -22,7 +22,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 
-import { useSystemEvent } from '@/composables/useEventBus.js';
+// ✅ 新增生命周期钩子
+
+import { useShortcut, useSystemEvent } from '@/composables';
 import { osBus } from '@/services';
 import { useWindowStore } from '@/store';
 
@@ -34,7 +36,6 @@ const windowStore = useWindowStore();
 const { windowStates } = storeToRefs(windowStore);
 
 const showDesktopMenu = (e: MouseEvent) => {
-  // TODO: 在桌面点击了右键，后续可在此处挂载并调用 ContextMenu 弹窗逻辑
   console.log('Desktop right click triggered at', e.clientX, e.clientY);
   osBus.emit('system:toast', {
     source: 'DesktopShell',
@@ -42,7 +43,6 @@ const showDesktopMenu = (e: MouseEvent) => {
   });
 };
 
-// 监听跨组件系统意图（解耦机制：其它应用发送意图唤起别的应用）
 const handleSystemIntent = (intentPayload: { action: string; appId: string; payload: any }) => {
   const { action, appId, payload } = intentPayload;
   if (action === 'OPEN_FILE' && appId) {
@@ -51,6 +51,33 @@ const handleSystemIntent = (intentPayload: { action: string; appId: string; payl
 };
 
 useSystemEvent('system:os-intent', handleSystemIntent);
+
+// 1. 注册全局系统快捷键：Alt + Tab 切换窗口
+useShortcut(
+  'alt+tab',
+  () => {
+    // osBus.emit('intent:cycle_windows');
+  },
+  { scope: 'global', priority: 999 }
+); // 系统级给予高优先级
+
+// 2. 注册全局系统快捷键：Win + D 返回桌面
+useShortcut(
+  'meta+d',
+  () => {
+    // osBus.emit('intent:toggle_desktop');
+  },
+  { scope: 'global', priority: 999 }
+);
+
+// 3. 注册全局系统快捷键：Esc 关闭顶层菜单
+useShortcut(
+  'escape',
+  () => {
+    // osBus.emit('system:close_top_popup');
+  },
+  { scope: 'global', priority: 500 }
+);
 </script>
 
 <style scoped>
