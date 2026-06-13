@@ -6,14 +6,14 @@ const BASE_Z_INDEX = 100;
 
 export const useWindowStore = defineStore('windows', {
   state: () => ({
-    windows: [] as WindowState[],
+    windowStates: [] as WindowState[],
     histories: [] as string[],
     activeWindowId: '',
     nextZIndex: BASE_Z_INDEX
   }),
 
   getters: {
-    activeWindow: (state) => state.windows.find((item) => item.id === state.activeWindowId)
+    activeWindow: (state) => state.windowStates.find((item) => item.id === state.activeWindowId)
   },
 
   actions: {
@@ -21,26 +21,26 @@ export const useWindowStore = defineStore('windows', {
     // 暂时先不用
     _normalizeZIndex() {
       // 按照当前 ZIndex 升序排序
-      this.windows.sort((a, b) => a.zIndex - b.zIndex);
+      this.windowStates.sort((a, b) => a.zIndex - b.zIndex);
       // 重新从 BASE 分配，消除断层和无限递增
-      this.windows.forEach((win, index) => {
+      this.windowStates.forEach((win, index) => {
         win.zIndex = BASE_Z_INDEX + index;
       });
-      this.nextZIndex = BASE_Z_INDEX + this.windows.length;
+      this.nextZIndex = BASE_Z_INDEX + this.windowStates.length;
     },
 
     findWindow(id: string) {
-      return this.windows.find((item) => item.id === id);
+      return this.windowStates.find((item) => item.id === id);
     },
 
     addWindow(windowState: WindowState) {
       windowState.zIndex = this.nextZIndex++;
-      this.windows.push(windowState);
+      this.windowStates.push(windowState);
       this.activeWindowId = windowState.id;
     },
 
     removeWindow(id: string) {
-      this.windows = this.windows.filter((item) => item.id !== id);
+      this.windowStates = this.windowStates.filter((item) => item.id !== id);
       this.histories = this.histories.filter((historyId) => historyId !== id);
 
       // 从 histories（历史栈）末尾向前寻找第一个未最小化的窗口激活
@@ -63,7 +63,7 @@ export const useWindowStore = defineStore('windows', {
     },
 
     focusWindow(id: string) {
-      const win = this.windows.find((item) => item.id === id);
+      const win = this.windowStates.find((item) => item.id === id);
       if (!win) return;
 
       // 1. Z-Index 逻辑：只有当它不是最高层时，才提升它，减少不必要的重排
@@ -82,12 +82,12 @@ export const useWindowStore = defineStore('windows', {
     },
 
     updateWindow(id: string, updates: Partial<WindowState>) {
-      const win = this.windows.find((item) => item.id === id);
+      const win = this.windowStates.find((item) => item.id === id);
       if (win) Object.assign(win, updates);
     },
 
     minimizeWindow(id: string) {
-      const win = this.windows.find((item) => item.id === id);
+      const win = this.windowStates.find((item) => item.id === id);
       if (win) {
         win.minimized = true;
         win.maximized = false;
@@ -109,7 +109,7 @@ export const useWindowStore = defineStore('windows', {
     },
 
     toggleMaximizeWindow(id: string) {
-      const win = this.windows.find((item) => item.id === id);
+      const win = this.windowStates.find((item) => item.id === id);
       if (win) {
         if (win.maximized) {
           win.maximized = false;
@@ -121,7 +121,7 @@ export const useWindowStore = defineStore('windows', {
     },
 
     maximizeWindow(id: string) {
-      const win = this.windows.find((item) => item.id === id);
+      const win = this.windowStates.find((item) => item.id === id);
       if (win) {
         win.maximized = true;
         this.focusWindow(id);

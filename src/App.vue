@@ -8,7 +8,7 @@ import { onMounted } from 'vue';
 // 新增导入
 import { DesktopShell } from '@/components';
 
-import { bootIpcDaemon } from './services/ipcDaemon';
+import { bootIpcDaemon } from './services';
 
 // 修改引用路径
 

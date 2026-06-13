@@ -1,17 +1,16 @@
 <template>
-  <main class="desktop-shell" @contextmenu.prevent="showDesktopMenu">
+  <main
+    class="desktop-shell"
+    @contextmenu.prevent="showDesktopMenu"
+    @click="osBus.emit('system:desktop_click')"
+  >
     <div class="desktop-background"></div>
 
     <div class="window-layer">
       <Window
-        v-for="win in windows"
-        :key="win.id"
-        :window-state="win"
-        @focus="focusWindow"
-        @close="closeWindow"
-        @minimize="minimizeWindow"
-        @toggle-maximize="toggleMaximizeWindow"
-        @update="updateWindow"
+        v-for="windowState in windowStates"
+        :key="windowState.id"
+        :window-state="windowState"
       />
     </div>
 
@@ -21,53 +20,37 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
-
 import { storeToRefs } from 'pinia';
 
+import { useSystemEvent } from '@/composables/useEventBus.js';
 import { osBus } from '@/services';
 import { useWindowStore } from '@/store';
-import type { WindowState } from '@/types';
 
 import NotificationCenter from './NotificationCenter.vue';
 import Taskbar from './Taskbar.vue';
 import Window from './Window.vue';
 
-// 引入通知组件
 const windowStore = useWindowStore();
-const { windows } = storeToRefs(windowStore);
-
-// 代理 Store 和 Manager 的方法，解耦模板
-const focusWindow = (id: string) => osBus.emit('intent:focus_window', { windowId: id });
-const closeWindow = (id: string) => osBus.emit('intent:close_window', { windowId: id });
-const minimizeWindow = (id: string) => osBus.emit('intent:minimize_window', { windowId: id });
-const toggleMaximizeWindow = (id: string) =>
-  osBus.emit('intent:toggle_maximize_window', { windowId: id });
-const updateWindow = (id: string, updates: Partial<WindowState>) =>
-  osBus.emit('intent:update_window', { windowId: id, updates });
+const { windowStates } = storeToRefs(windowStore);
 
 const showDesktopMenu = (e: MouseEvent) => {
-  // TODO: 后续可在此处挂载并调用 ContextMenu 弹窗逻辑
+  // TODO: 在桌面点击了右键，后续可在此处挂载并调用 ContextMenu 弹窗逻辑
   console.log('Desktop right click triggered at', e.clientX, e.clientY);
+  osBus.emit('system:toast', {
+    source: 'DesktopShell',
+    message: '点击了右键'
+  });
 };
 
 // 监听跨组件系统意图（解耦机制：其它应用发送意图唤起别的应用）
-const handleSystemIntent = (event: Event) => {
-  const customEvent = event as CustomEvent;
-  const { action, appId, payload } = customEvent.detail;
-
+const handleSystemIntent = (intentPayload: { action: string; appId: string; payload: any }) => {
+  const { action, appId, payload } = intentPayload;
   if (action === 'OPEN_FILE' && appId) {
     osBus.emit('intent:launch_app', { appId, props: payload });
   }
 };
 
-onMounted(() => {
-  window.addEventListener('os-intent', handleSystemIntent);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('os-intent', handleSystemIntent);
-});
+useSystemEvent('system:os-intent', handleSystemIntent);
 </script>
 
 <style scoped>

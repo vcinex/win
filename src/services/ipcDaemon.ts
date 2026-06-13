@@ -1,7 +1,6 @@
 import { defineAsyncComponent, markRaw } from 'vue';
 
-import { getApp } from '@/services';
-import { useWindowStore } from '@/store';
+import { useAppStore, useWindowStore } from '@/store';
 
 import { osBus } from './eventBus';
 
@@ -16,15 +15,15 @@ export function bootIpcDaemon() {
 
   // 此时确保 Pinia 已经挂载
   const windowStore = useWindowStore();
+  const appStore = useAppStore();
 
   // 监听：启动应用
   osBus.on('intent:launch_app', async (payload) => {
     const { appId, props } = payload;
-    const appDef = getApp(appId);
+    const appDef = appStore.getApp(appId);
 
     if (!appDef) {
-      console.error(`[OS Kernel] Application "${appId}" is not registered.`);
-      osBus.emit('system:error', {
+      osBus.emit('system:toast', {
         source: 'IPC_DAEMON',
         message: `找不到应用 "${appId}" 的注册信息。`,
         code: 404
@@ -34,7 +33,7 @@ export function bootIpcDaemon() {
 
     // 1. 原有的单例拦截检查保留
     if (appDef.single) {
-      const existingWin = windowStore.windows.find((w) => w.appId === appId);
+      const existingWin = windowStore.windowStates.find((w) => w.appId === appId);
       if (existingWin) {
         if (props) {
           windowStore.updateWindow(existingWin.id, { props });
@@ -53,11 +52,9 @@ export function bootIpcDaemon() {
       loader: appDef.component,
       delay: 200,
       timeout: 10000,
-      onError(error, retry, fail, attempts) {
-        console.error(`[OS Kernel] Failed to load application component: ${appId}`, error);
-
+      onError(error, fail) {
         // 1. 向系统总线抛出错误广播
-        osBus.emit('system:error', {
+        osBus.emit('system:toast', {
           source: 'IPC_DAEMON',
           message: `无法启动 "${appDef.name}"。请检查网络连接或应用文件是否损坏。`,
           code: 'APP_LOAD_FAILED'

@@ -93,17 +93,11 @@ import { computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 
 import { useWindowInteract } from '@/composables';
+import { osBus } from '@/services';
 import { useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
 
 const props = defineProps<{ windowState: WindowState }>();
-const emit = defineEmits<{
-  (event: 'focus', id: string): void;
-  (event: 'close', id: string): void;
-  (event: 'minimize', id: string): void;
-  (event: 'toggleMaximize', id: string): void;
-  (event: 'update', id: string, updates: Partial<WindowState>): void;
-}>();
 
 // 系统常量配置
 const SYSTEM_UI = {
@@ -123,8 +117,9 @@ const { isDragging, isResizing, localRect, startDrag, startResize } = useWindowI
   minWidth: SYSTEM_UI.MIN_WIDTH,
   minHeight: SYSTEM_UI.MIN_HEIGHT,
   taskbarHeight: SYSTEM_UI.TASKBAR_HEIGHT,
-  onUpdate: (updates) => emit('update', props.windowState.id, updates),
-  onFocus: () => emit('focus', props.windowState.id)
+  onUpdate: (updates) =>
+    osBus.emit('intent:update_window', { windowId: props.windowState.id, updates }),
+  onFocus: () => osBus.emit('intent:focus_window', { windowId: props.windowState.id })
 });
 
 // 同步外部状态 (仅当非交互状态时)
@@ -192,13 +187,13 @@ const windowStyle = computed(() => {
 });
 
 // 方法派发
-const onFocus = () => emit('focus', props.windowState.id);
-const closeWindow = () => emit('close', props.windowState.id);
+const onFocus = () => osBus.emit('intent:focus_window', { windowId: props.windowState.id });
+const closeWindow = () => osBus.emit('intent:close_window', { windowId: props.windowState.id });
 const minimize = () => {
-  emit('minimize', props.windowState.id);
+  osBus.emit('intent:minimize_window', { windowId: props.windowState.id });
 };
 const toggleMaximize = () => {
-  emit('toggleMaximize', props.windowState.id);
+  osBus.emit('intent:toggle_maximize_window', { windowId: props.windowState.id });
 };
 </script>
 

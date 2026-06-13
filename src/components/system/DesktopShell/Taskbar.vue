@@ -3,7 +3,7 @@
     <div class="taskbar-center">
       <button
         class="taskbar-icon start-btn"
-        :class="{ 'is-open': startMenuOpen }"
+        :class="{ 'is-open': isSartMenuOpen }"
         @click.stop="toggleStartMenu"
       >
         <svg viewBox="0 0 88 88" width="24" height="24">
@@ -15,63 +15,60 @@
       </button>
 
       <button
-        v-for="win in openWindows"
-        :key="win.id"
+        v-for="windowState in windowStates"
+        :key="windowState.id"
         class="taskbar-icon app-btn"
-        :class="{ active: win.id === activeWindowId && !win.minimized }"
-        :title="win.title"
-        @click="handleTaskbarClick(win)"
+        :class="{ active: windowState.id === activeWindowId && !windowState.minimized }"
+        :title="windowState.title"
+        @click="handleTaskbarClick(windowState)"
       >
-        <span class="fallback-icon">{{ getAppIcon(win.appId) }}</span>
-        <div :class="['indicator', { min: win.minimized }]"></div>
+        <span class="fallback-icon">{{ windowState.icon }}</span>
+        <div :class="['indicator', { min: windowState.minimized }]"></div>
       </button>
     </div>
-    <StartMenu :is-open="startMenuOpen" @close="startMenuOpen = false" />
+    <StartMenu :is-open="isSartMenuOpen" @close="isSartMenuOpen = false" />
   </footer>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import { storeToRefs } from 'pinia';
 
-import { getApp } from '@/services/appRegistry';
-import { osBus } from '@/services/eventBus';
-import { useWindowStore } from '@/store/windows';
+import { useSystemEvent } from '@/composables/useEventBus.js';
+import { osBus } from '@/services';
+import { useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
 
 // ✅ 用于结构响应式数据
 import StartMenu from './StartMenu.vue';
 
-let startMenuOpen = ref<boolean>(false);
+let isSartMenuOpen = ref<boolean>(false);
 
 // 【读操作】：直接从 Pinia 取状态并建立响应式绑定
 const windowStore = useWindowStore();
-const { windows: openWindows, activeWindowId } = storeToRefs(windowStore);
-
-const getAppIcon = (appId: string) => getApp(appId)?.icon || '📄';
+const { windowStates, activeWindowId } = storeToRefs(windowStore);
 
 function toggleStartMenu() {
-  startMenuOpen.value = !startMenuOpen.value;
+  isSartMenuOpen.value = !isSartMenuOpen.value;
 }
 
-function handleTaskbarClick(win: WindowState) {
-  startMenuOpen.value = false;
+function handleTaskbarClick(windowState: WindowState) {
+  isSartMenuOpen.value = false;
   // 【写操作】：只发送意图，怎么最小化、怎么聚焦是 Daemon 的事
-  if (activeWindowId.value === win.id && !win.minimized) {
-    osBus.emit('intent:minimize_window', { windowId: win.id });
+  if (activeWindowId.value === windowState.id && !windowState.minimized) {
+    osBus.emit('intent:minimize_window', { windowId: windowState.id });
   } else {
-    osBus.emit('intent:focus_window', { windowId: win.id });
+    osBus.emit('intent:focus_window', { windowId: windowState.id });
   }
 }
 
 // 原有的点击空白处关闭逻辑保持不动
 const closeMenuOnOutsideClick = () => {
-  if (startMenuOpen.value) startMenuOpen.value = false;
+  if (isSartMenuOpen.value) isSartMenuOpen.value = false;
 };
 
-onMounted(() => window.addEventListener('click', closeMenuOnOutsideClick));
-onUnmounted(() => window.removeEventListener('click', closeMenuOnOutsideClick));
+onMounted(() => useSystemEvent('system:desktop_click', closeMenuOnOutsideClick));
 </script>
 
 <style scoped>

@@ -44,15 +44,9 @@ export class VirtualFileSystem {
   }
 
   private async initialize(): Promise<void> {
-    try {
-      this.idb = await this.initIdb();
-      this.opfsRoot = await this.initOpfs();
-      await this.loadMetadata();
-      console.log('✅ 虚拟文件系统 (VFS Kernel) 已挂载');
-    } catch (error) {
-      console.error('❌ VFS 初始化失败:', error);
-      throw error;
-    }
+    this.idb = await this.initIdb();
+    this.opfsRoot = await this.initOpfs();
+    await this.loadMetadata();
   }
 
   // ==================== 核心：安全与路径处理 ====================

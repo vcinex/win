@@ -14,23 +14,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { ref } from 'vue';
 
-import { osBus } from '@/services/eventBus';
-import type { SystemIntents } from '@/types/intents';
+import { useSystemEvent } from '@/composables';
+import type { SystemIntents } from '@/types';
 
-// 定义通知数据的结构
-// 将 interface 改为 type
-type ToastMessage = SystemIntents['system:error'] & {
+type ToastMessage = SystemIntents['system:toast'] & {
   id: number;
 };
 
 const toasts = ref<ToastMessage[]>([]);
 
 // 处理系统错误广播
-const handleSystemError = (payload: SystemIntents['system:error']) => {
+const handleSystemError = (payload: SystemIntents['system:toast']) => {
   const id = Date.now();
-
   toasts.value.push({ id, ...payload });
 
   // 5秒后自动关闭提示框
@@ -44,8 +41,7 @@ const removeToast = (id: number) => {
 };
 
 // 挂载时监听，卸载时移除
-onMounted(() => osBus.on('system:error', handleSystemError));
-onUnmounted(() => osBus.off('system:error', handleSystemError));
+useSystemEvent('system:toast', handleSystemError);
 </script>
 
 <style scoped>

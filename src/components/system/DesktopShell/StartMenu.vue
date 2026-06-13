@@ -22,26 +22,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { listApps, registerApp } from '@/services/appRegistry';
-// ✅ 直接引入注册表服务
-import { osBus } from '@/services/eventBus';
-
-// ✅ 引入事件总线
+import { osBus } from '@/services';
+import { useAppStore } from '@/store';
+import { AppDefinition } from '@/types';
 
 defineProps<{ isOpen: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
 
-// 保留原有的应用注册逻辑
-registerApp({
-  id: 'hello-world',
-  name: 'Welcome',
-  icon: '🌐',
-  component: () => import('../Welcome/index.vue'),
-  defaultSize: { width: 560, height: 420 },
-  single: false
-});
+const appStore = useAppStore();
 
-const registeredApps = computed(() => listApps());
+const registeredApps = computed<AppDefinition[]>(() => appStore.appArray);
 
 function handleLaunchApp(appId: string) {
   emit('close');
