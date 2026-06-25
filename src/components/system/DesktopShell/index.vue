@@ -22,8 +22,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 
-// ✅ 新增生命周期钩子
-
 import { useShortcut, useSystemEvent } from '@/composables';
 import { osBus } from '@/services';
 import { useWindowStore } from '@/store';
@@ -52,6 +50,11 @@ const handleSystemIntent = (intentPayload: { action: string; appId: string; payl
 
 useSystemEvent('system:os-intent', handleSystemIntent);
 
+// ✅ 接收全局桌面点击事件，关闭所有层级的弹窗菜单
+useSystemEvent('system:desktop_click', () => {
+  osBus.emit('intent:closeAllPopups', null);
+});
+
 // 1. 注册全局系统快捷键：Alt + Tab 切换窗口
 useShortcut(
   'alt+tab',
@@ -70,11 +73,11 @@ useShortcut(
   { scope: 'global', priority: 999 }
 );
 
-// 3. 注册全局系统快捷键：Esc 关闭顶层菜单
+// 3. ✅ 注册全局系统快捷键：Esc 关闭顶层菜单
 useShortcut(
   'escape',
   () => {
-    // osBus.emit('system:close_top_popup');
+    osBus.emit('intent:closeTopPopup', null);
   },
   { scope: 'global', priority: 500 }
 );

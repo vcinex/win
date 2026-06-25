@@ -1,6 +1,6 @@
 import { defineAsyncComponent, markRaw } from 'vue';
 
-import { useAppStore, useWindowStore } from '@/store';
+import { useAppStore, useSystemStore, useWindowStore } from '@/store';
 
 import { osBus } from './eventBus';
 
@@ -16,6 +16,7 @@ export function bootIpcDaemon() {
   // 此时确保 Pinia 已经挂载
   const windowStore = useWindowStore();
   const appStore = useAppStore();
+  const systemStore = useSystemStore();
 
   // 监听：启动应用
   osBus.on('intent:launch_app', async (payload) => {
@@ -93,6 +94,10 @@ export function bootIpcDaemon() {
   osBus.on('intent:toggle_maximize_window', (p) => windowStore.toggleMaximizeWindow(p.windowId));
   osBus.on('intent:focus_window', (p) => windowStore.focusWindow(p.windowId));
   osBus.on('intent:update_window', (p) => windowStore.updateWindow(p.windowId, p.updates));
+
+  osBus.on('intent:togglePopup', (p) => systemStore.togglePopup(p.popupId));
+  osBus.on('intent:closeTopPopup', () => systemStore.closeTopPopup());
+  osBus.on('intent:closeAllPopups', () => systemStore.closeAllPopups());
 
   isBooted = true;
   console.log('🚀 [OS Kernel] IPC Daemon booted successfully.');

@@ -7,6 +7,9 @@ export type WindowIntents = {
   'intent:toggle_maximize_window': { windowId: string };
   'intent:focus_window': { windowId: string };
   'intent:update_window': { windowId: string; updates: Record<string, any> };
+  'intent:togglePopup': { popupId: string };
+  'intent:closeTopPopup': null;
+  'intent:closeAllPopups': null;
 };
 
 // 系统级广播意图

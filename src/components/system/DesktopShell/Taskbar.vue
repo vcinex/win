@@ -4,8 +4,8 @@
       <button
         ref="startBtnRef"
         class="taskbar-icon start-btn"
-        :class="{ 'is-open': isSartMenuOpen }"
-        @click="toggleStartMenu"
+        :class="{ 'is-open': systemStore.isStartMenuOpen }"
+        @click.stop="toggleStartMenu"
       >
         <svg viewBox="0 0 88 88" width="24" height="24">
           <path
@@ -21,14 +21,14 @@
         class="taskbar-icon app-btn"
         :class="{ active: windowState.id === activeWindowId && !windowState.minimized }"
         :title="windowState.title"
-        @click="handleTaskbarClick(windowState)"
+        @click.stop="handleTaskbarClick(windowState)"
       >
         <span class="fallback-icon">{{ windowState.icon }}</span>
         <div :class="['indicator', { min: windowState.minimized }]"></div>
       </button>
     </div>
 
-    <StartMenu ref="startMenuRef" :is-open="isSartMenuOpen" @close="isSartMenuOpen = false" />
+    <StartMenu ref="startMenuRef" :is-open="systemStore.isStartMenuOpen" @close="toggleStartMenu" />
   </footer>
 </template>
 
@@ -39,26 +39,24 @@ import { onClickOutside } from '@vueuse/core';
 import { storeToRefs } from 'pinia';
 
 import { osBus } from '@/services';
-import { useWindowStore } from '@/store';
+import { useSystemStore, useWindowStore } from '@/store';
 import type { WindowState } from '@/types';
 
 import StartMenu from './StartMenu.vue';
 
-let isSartMenuOpen = ref<boolean>(false);
-
+const systemStore = useSystemStore();
 const windowStore = useWindowStore();
 const { windowStates, activeWindowId } = storeToRefs(windowStore);
 
-// DOM Refs 用于 onClickOutside 绑定
 const startBtnRef = ref<HTMLElement | null>(null);
 const startMenuRef = ref<InstanceType<typeof StartMenu> | null>(null);
 
 function toggleStartMenu() {
-  isSartMenuOpen.value = !isSartMenuOpen.value;
+  osBus.emit('intent:togglePopup', { popupId: 'start-menu' });
 }
 
 function handleTaskbarClick(windowState: WindowState) {
-  isSartMenuOpen.value = false;
+  osBus.emit('intent:closeAllPopups', null);
   if (activeWindowId.value === windowState.id && !windowState.minimized) {
     osBus.emit('intent:minimize_window', { windowId: windowState.id });
   } else {
@@ -66,19 +64,20 @@ function handleTaskbarClick(windowState: WindowState) {
   }
 }
 
-// ✅ 核心优化：使用 onClickOutside 替代原本脆弱的全局事件监听
+// 这里的 onClickOutside 继续保持 capture: true
 onClickOutside(
   () => (startMenuRef.value as any)?.$el,
   () => {
-    if (isSartMenuOpen.value) {
-      isSartMenuOpen.value = false;
+    if (systemStore.isStartMenuOpen) {
+      toggleStartMenu();
     }
   },
-  { ignore: [startBtnRef] } // 忽略对开始按钮本身的点击，交由 toggleStartMenu 处理
+  { ignore: [startBtnRef], capture: true }
 );
 </script>
 
 <style scoped>
+/* 保持原有样式不变 */
 .win11-taskbar {
   position: absolute;
   bottom: 0;
