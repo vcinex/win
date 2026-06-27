@@ -155,6 +155,24 @@ export class VirtualFileSystem {
     await tx.objectStore(IDB_STORE).put({ path, data });
   }
 
+  // >>>>> 新增辅助驱动方法 >>>>>
+  private async deleteMetadata(path: string) {
+    if (!this.idb) return;
+    const tx = this.idb.transaction(IDB_STORE, 'readwrite');
+    await tx.objectStore(IDB_STORE).delete(path);
+  }
+
+  private async getOpfsDirHandle(dirPath: string, create = false) {
+    let handle = this.opfsRoot!;
+    if (!dirPath) return handle;
+    const parts = dirPath.split('/').filter(Boolean);
+    for (const p of parts) {
+      handle = await handle.getDirectoryHandle(p, { create });
+    }
+    return handle;
+  }
+  // <<<<< 新增辅助驱动方法 <<<<<
+
   // ==================== 文件系统操作 API ====================
   public async readDirectory(dirPath: string): Promise<FileMetadata[]> {
     await this.ready();
@@ -210,13 +228,8 @@ export class VirtualFileSystem {
     }
 
     // 2. 获取 OPFS 句柄并处理并发锁
-    const parts = path.split('/');
-    const fileName = parts.pop()!;
-    let dirHandle = this.opfsRoot!;
-    for (const p of parts) {
-      dirHandle = await dirHandle.getDirectoryHandle(p, { create: true });
-    }
-    const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+    const dirHandle = await this.getOpfsDirHandle(this.dirname(path), true);
+    const fileHandle = await dirHandle.getFileHandle(this.basename(path), { create: true });
 
     try {
       const writable = await fileHandle.createWritable();
@@ -255,12 +268,8 @@ export class VirtualFileSystem {
     if (!item) throw new Error('ENOENT: 文件不存在');
     if (item.type !== 'file') throw new Error('EISDIR: 是一个目录');
 
-    const parts = path.split('/');
-    const fileName = parts.pop()!;
-    let dirHandle = this.opfsRoot!;
-    for (const p of parts) dirHandle = await dirHandle.getDirectoryHandle(p);
-
-    const fileHandle = await dirHandle.getFileHandle(fileName);
+    const dirHandle = await this.getOpfsDirHandle(this.dirname(path));
+    const fileHandle = await dirHandle.getFileHandle(this.basename(path));
     return await fileHandle.getFile();
   }
 
@@ -291,6 +300,278 @@ export class VirtualFileSystem {
   public async exist(rawPath: string): Promise<boolean> {
     await this.ready();
     return this.files.has(this.normalizePath(rawPath));
+  }
+
+  // ==================== ⬇️ 补全的现代化文件系统接口 ⬇️ ====================
+
+  /** 获取文件元数据 */
+  public async stat(rawPath: string): Promise<FileMetadata> {
+    await this.ready();
+    const path = this.normalizePath(rawPath);
+    const item = this.files.get(path);
+    if (!item) throw new Error(`ENOENT: ${path} 不存在`);
+    return {
+      name: this.basename(path),
+      path,
+      size: item.size,
+      mtime: item.mtime,
+      type: item.type,
+      hidden: item.hidden,
+      readOnly: item.readOnly,
+      permissions: item.permissions,
+      mimeType: item.mimeType
+    };
+  }
+
+  /** 修改文件属性 */
+  public async setAttribute(
+    rawPath: string,
+    attrs: Partial<Pick<FSItem, 'hidden' | 'readOnly' | 'locked'>>
+  ): Promise<void> {
+    await this.ready();
+    const path = this.normalizePath(rawPath);
+    const item = this.files.get(path);
+    if (!item) throw new Error('ENOENT: 文件不存在');
+    Object.assign(item, attrs);
+    await this.saveMetadata(path, item);
+    this.emitEvent(path, 'write');
+  }
+
+  /** 修改文件权限 */
+  public async chmod(rawPath: string, permissions: number): Promise<void> {
+    await this.ready();
+    const path = this.normalizePath(rawPath);
+    const item = this.files.get(path);
+    if (!item) throw new Error('ENOENT: 文件不存在');
+    item.permissions = permissions;
+    await this.saveMetadata(path, item);
+    this.emitEvent(path, 'write');
+  }
+
+  /** 永久删除文件 (或软链接) */
+  public async unlink(rawPath: string): Promise<void> {
+    await this.ready();
+    const path = this.normalizePath(rawPath);
+    const item = this.files.get(path);
+    if (!item) throw new Error('ENOENT: 文件不存在');
+    if (item.type === 'directory')
+      throw new Error('EISDIR: 不能通过 unlink 删除目录，请使用 rmdir');
+
+    // 真实文件需要删除底层 OPFS
+    if (item.type === 'file') {
+      try {
+        const dirHandle = await this.getOpfsDirHandle(this.dirname(path));
+        await dirHandle.removeEntry(this.basename(path));
+      } catch (e) {
+        console.warn('[VFS] OPFS底层文件清理失败:', e);
+      }
+    }
+
+    this.files.delete(path);
+    this.updateIndex(path, 'remove');
+    await this.deleteMetadata(path);
+    this.emitEvent(path, 'delete');
+  }
+
+  /** 删除目录 */
+  public async rmdir(rawPath: string, recursive = false): Promise<void> {
+    await this.ready();
+    const path = this.normalizePath(rawPath);
+    const item = this.files.get(path);
+    if (!item) throw new Error('ENOENT: 目录不存在');
+    if (item.type !== 'directory') throw new Error('ENOTDIR: 不是一个目录');
+
+    const children = this.dirIndex.get(path);
+    if (children && children.size > 0) {
+      if (!recursive) throw new Error('ENOTEMPTY: 目录不为空');
+      // 级联删除子文件
+      for (const child of children) {
+        const childPath = `${path}/${child}`;
+        const childItem = this.files.get(childPath);
+        if (childItem?.type === 'directory') await this.rmdir(childPath, true);
+        else await this.unlink(childPath);
+      }
+    }
+
+    try {
+      const dirHandle = await this.getOpfsDirHandle(this.dirname(path));
+      await dirHandle.removeEntry(this.basename(path), { recursive: true });
+    } catch (e) {
+      console.warn('[VFS] OPFS底层目录清理失败:', e);
+    }
+
+    this.files.delete(path);
+    this.updateIndex(path, 'remove');
+    await this.deleteMetadata(path);
+    this.emitEvent(path, 'delete');
+  }
+
+  /** 复制文件 */
+  public async copyFile(srcRaw: string, destRaw: string): Promise<void> {
+    const src = this.normalizePath(srcRaw);
+    const dest = this.normalizePath(destRaw);
+    const item = this.files.get(src);
+    if (!item || item.type !== 'file') throw new Error('ENOENT: 源文件无效');
+
+    const file = await this.readFile(src);
+    await this.writeFile(dest, file, item.mimeType);
+  }
+
+  /** 复制目录及内容 */
+  public async copyDirectory(srcRaw: string, destRaw: string): Promise<void> {
+    const src = this.normalizePath(srcRaw);
+    const dest = this.normalizePath(destRaw);
+    const item = this.files.get(src);
+    if (!item || item.type !== 'directory') throw new Error('ENOENT: 源目录无效');
+
+    await this.mkdir(dest);
+    const children = this.dirIndex.get(src);
+    if (children) {
+      for (const child of children) {
+        const childSrc = `${src}/${child}`;
+        const childDest = `${dest}/${child}`;
+        const childItem = this.files.get(childSrc);
+        if (childItem?.type === 'directory') await this.copyDirectory(childSrc, childDest);
+        else if (childItem?.type === 'file') await this.copyFile(childSrc, childDest);
+      }
+    }
+  }
+
+  /** 重命名 / 移动文件或目录 (Move/Cut) */
+  public async rename(oldRaw: string, newRaw: string): Promise<void> {
+    const oldPath = this.normalizePath(oldRaw);
+    const newPath = this.normalizePath(newRaw);
+    if (oldPath === newPath) return;
+
+    const item = this.files.get(oldPath);
+    if (!item) throw new Error('ENOENT: 源路径不存在');
+    if (this.files.has(newPath)) throw new Error('EEXIST: 目标路径已存在');
+
+    if (item.type === 'directory') {
+      await this.copyDirectory(oldPath, newPath);
+      await this.rmdir(oldPath, true);
+    } else {
+      await this.copyFile(oldPath, newPath);
+      await this.unlink(oldPath);
+    }
+    this.emitEvent(oldPath, 'rename');
+  }
+
+  /** 创建快捷方式 (软链接) */
+  public async createSymlink(targetPath: string, linkRawPath: string): Promise<void> {
+    await this.ready();
+    const linkPath = this.normalizePath(linkRawPath);
+    if (this.files.has(linkPath)) throw new Error('EEXIST: 快捷方式路径已被占用');
+
+    const item: FSItem = {
+      type: 'symlink',
+      mtime: Date.now(),
+      size: 0,
+      target: targetPath
+    };
+
+    this.files.set(linkPath, item);
+    this.updateIndex(linkPath, 'add');
+    await this.saveMetadata(linkPath, item);
+    this.emitEvent(linkPath, 'create');
+  }
+
+  /** 移至回收站 */
+  public async moveToTrash(rawPath: string): Promise<void> {
+    await this.ready();
+    const path = this.normalizePath(rawPath);
+    const item = this.files.get(path);
+    if (!item) throw new Error('ENOENT: 文件/目录不存在');
+
+    if (!this.files.has('C:/.trash')) await this.mkdir('C:/.trash');
+
+    // 生成防冲突的回收站内部名
+    const trashId = `${Date.now()}_${this.basename(path)}`;
+    const trashPath = `C:/.trash/${trashId}`;
+
+    // 将实际文件/目录挪进隐藏的 .trash 目录中
+    await this.rename(path, trashPath);
+
+    // 记录回收站元数据
+    const trashItem: TrashItem = {
+      ...item,
+      originalPath: path,
+      deletedAt: Date.now()
+    };
+
+    this.trash.set(trashPath, trashItem);
+    if (this.idb) {
+      const tx = this.idb.transaction(IDB_TRASH, 'readwrite');
+      await tx.objectStore(IDB_TRASH).put({ path: trashPath, data: trashItem });
+    }
+  }
+
+  /** 获取回收站列表 */
+  public async getTrashItems(): Promise<TrashItem[]> {
+    await this.ready();
+    return Array.from(this.trash.values());
+  }
+
+  /** 从回收站恢复 */
+  public async restoreFromTrash(originalPath: string): Promise<void> {
+    await this.ready();
+    const trashEntry = Array.from(this.trash.entries()).find(
+      ([_, item]) => item.originalPath === originalPath
+    );
+    if (!trashEntry) throw new Error('ENOENT: 回收站中未找到此项');
+
+    const [trashPath, trashItem] = trashEntry;
+
+    // 如果原目录不存在了（比如父级被删），恢复到桌面或者根目录可以自行在这里补充逻辑
+    await this.rename(trashPath, trashItem.originalPath);
+
+    this.trash.delete(trashPath);
+    if (this.idb) {
+      const tx = this.idb.transaction(IDB_TRASH, 'readwrite');
+      await tx.objectStore(IDB_TRASH).delete(trashPath);
+    }
+  }
+
+  /** 清空回收站 */
+  public async emptyTrash(): Promise<void> {
+    await this.ready();
+    for (const trashPath of this.trash.keys()) {
+      const item = this.files.get(trashPath);
+      if (item?.type === 'directory') await this.rmdir(trashPath, true);
+      else if (item) await this.unlink(trashPath);
+    }
+
+    this.trash.clear();
+    if (this.idb) {
+      const tx = this.idb.transaction(IDB_TRASH, 'readwrite');
+      await tx.objectStore(IDB_TRASH).clear();
+    }
+  }
+
+  /** 文件内容/名搜索 (供全局检索栏使用) */
+  public async search(keyword: string, dirRawPath: string = 'C:'): Promise<FileMetadata[]> {
+    await this.ready();
+    const dirPath = this.normalizePath(dirRawPath);
+    const lowerKeyword = keyword.toLowerCase();
+    const result: FileMetadata[] = [];
+
+    // 快速遍历内存元数据
+    for (const [path, item] of this.files.entries()) {
+      if (path.startsWith(dirPath) && this.basename(path).toLowerCase().includes(lowerKeyword)) {
+        result.push({
+          name: this.basename(path),
+          path,
+          size: item.size,
+          mtime: item.mtime,
+          type: item.type,
+          hidden: item.hidden,
+          readOnly: item.readOnly,
+          permissions: item.permissions,
+          mimeType: item.mimeType
+        });
+      }
+    }
+    return result;
   }
 
   // ==================== 事件总线机制 ====================
